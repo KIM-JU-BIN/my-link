@@ -1,36 +1,62 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950 px-6 py-12">
-      <main className="flex flex-col items-center text-center max-w-2xl gap-8">
-        <section className="flex flex-col gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
-            홍길동
-          </h1>
-          <p className="text-xl text-zinc-600 dark:text-zinc-400">
-            안녕하세요, 바이브 코딩을 배우고 있는 대학생입니다.
-          </p>
-        </section>
-
-        <hr className="w-full border-zinc-200 dark:border-zinc-800" />
-
-        <section className="flex flex-col gap-6">
-          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-            학습 중인 롤모델: 윤창식 개발자
-          </h2>
-          <div className="text-left bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-            <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
-              제가 영감을 얻고 있는 <strong>윤창식 개발자</strong>님은 &quot;바이브 코딩&quot;의 철학을 전파하며 개발 생태계에 긍정적인 영향력을 미치고 계신 분입니다. 
-            </p>
-            <ul className="mt-4 space-y-2 text-zinc-600 dark:text-zinc-400 list-disc list-inside">
-              <li>실전 중심의 코딩 교육 및 멘토링</li>
-              <li>효율적이고 직관적인 개발 방법론 제시</li>
-              <li>커뮤니티를 통한 지식 공유와 성장에 기여</li>
-            </ul>
-            <p className="mt-4 text-zinc-700 dark:text-zinc-300">
-              윤창식 개발자님의 가르침을 바탕으로, 단순한 코딩을 넘어 사용자에게 가치를 전달하는 개발자가 되기 위해 노력하고 있습니다.
-            </p>
+    <div className="min-h-screen bg-[#f4f4f0] text-black font-sans selection:bg-black selection:text-white p-6 md:p-12 flex items-center justify-center">
+      <main className="w-full max-w-5xl flex flex-col gap-10">
+        
+        {/* Header / Hero Section */}
+        <header className="bg-[#FFD166] border-4 border-black shadow-[12px_12px_0_0_rgba(0,0,0,1)] p-10 md:p-16 rounded-xl flex flex-col items-start gap-6 relative overflow-hidden transition-transform hover:-translate-y-1 duration-300">
+          <div className="absolute top-4 right-6 text-8xl opacity-20 font-black pointer-events-none">
+            &#10033;
           </div>
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-black">
+            김주빈
+          </h1>
+          <div className="bg-[#EF476F] text-white text-xl md:text-2xl font-bold px-4 py-2 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] transform -rotate-2">
+            한양여자대학교 3학년 재학중 (2026년 기준)
+          </div>
+        </header>
+
+        {/* Links Section */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <a
+            href="https://velog.io/@kim_ju_bin/posts"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block bg-[#06D6A0] border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-1.5 hover:translate-y-1.5 transition-all p-10 text-center rounded-xl flex flex-col items-center justify-center"
+          >
+            <h2 className="text-3xl font-black text-black group-hover:underline decoration-4 underline-offset-4">
+              Velog
+            </h2>
+            <p className="mt-4 text-black font-bold border-t-2 border-black/20 pt-4 w-full">기술 블로그</p>
+          </a>
+
+          <a
+            href="https://github.com/KIM-JU-BIN"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block bg-[#118AB2] border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-1.5 hover:translate-y-1.5 transition-all p-10 text-center rounded-xl flex flex-col items-center justify-center"
+          >
+            <h2 className="text-3xl font-black text-white group-hover:underline decoration-4 underline-offset-4">
+              GitHub
+            </h2>
+            <p className="mt-4 text-white font-bold border-t-2 border-white/30 pt-4 w-full">소스 코드 및 프로젝트</p>
+          </a>
+
+          <a
+            href="https://www.linkedin.com/in/%EC%A3%BC%EB%B9%88-%EA%B9%80-3ab913387/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block bg-[#A084E8] border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-1.5 hover:translate-y-1.5 transition-all p-10 text-center rounded-xl flex flex-col items-center justify-center"
+          >
+            <h2 className="text-3xl font-black text-black group-hover:underline decoration-4 underline-offset-4 break-all">
+              LinkedIn
+            </h2>
+            <p className="mt-4 text-black font-bold border-t-2 border-black/20 pt-4 w-full">전문가 경력 및 인맥</p>
+          </a>
         </section>
+
       </main>
     </div>
   );
