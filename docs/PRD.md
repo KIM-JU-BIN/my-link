@@ -79,3 +79,32 @@ NoSQL인 Firebase Firestore 구조를 채택하여, **User Collection**과 **Lin
   - `url`: 연결될 실제 타겟 URL
   - `faviconUrl`: 구글 파비콘 API를 통해 추출 및 저장된 이미지 URL
   - `createdAt`: 링크를 처음 추가한 일자 (단순 목록 등록일순 정렬의 1차 기준으로 활용)
+
+### 💻 데이터베이스 모델링 타입 정의 (TypeScript)
+
+해당 문서를 바탕으로 프론트엔드 환경에서 사용될 타입 인터페이스입니다.
+
+#### User Collection (`users`)
+```typescript
+type UserDocument = {
+  id: string;               // 유저 고유 식별자 (uid)
+  email: string;            // 사용자 이메일 계정 (구글 소셜 연동)
+  displayName: string;      // 구글 소셜 연동 시 제공되는 표시 이름
+  username: string;         // 실제 사용자의 이름
+  nickname: string;         // 고유 접속 URL로 사용될 닉네임 문자열
+  bio: string;              // 프로필에 표시될 한 줄 소개 문구
+  profileImageUrl: string;  // 접속자 프로필 원본 사진 경로
+  createdAt: Date;          // 계정 첫 가입 일자
+}
+```
+
+#### Links Sub-collection (`users/{uid}/links`)
+```typescript
+type LinkDocument = {
+  id: string;               // 링크 고유 식별자 (linkId)
+  title: string;            // 링크 카드 제목
+  url: string;              // 타겟 URL
+  faviconUrl: string;       // 자동 추출된 아이콘 이미지(Favicon) URL
+  createdAt: Date;          // 링크 최초 생성 일자
+}
+```
