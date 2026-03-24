@@ -77,10 +77,13 @@ graph TD
     A --> D[Link Management Section]
     
     B --> B1[MyLink Logo]
-    B --> B2[Logout Button]
+    B --> B2[내 페이지 보기 Button]
+    B --> B3[Logout Button]
     
-    C --> C1[My URL Display & Copy Btn]
-    C --> C2[Profile Settings Btn]
+    C --> C0[Profile Image]
+    C --> C1[Nickname Display + Edit ✏️]
+    C --> C2[Bio Display + Edit ✏️]
+    C --> C3[My URL Display & Copy Btn]
     
     D --> D1[ + 새 링크 추가하기 Button ]
     D --> D2[Link Edit Card 1]
@@ -96,11 +99,16 @@ graph TD
 
 ```text
 +------------------------------------+
-|  [MyLink Logo]         [ 로그아웃 ]  |
+|  [MyLink Logo] [내 페이지↗] [로그아웃] |
 +------------------------------------+
 |                                    |
-|  🔗 내 프로필 주소:                   |
-|  mylink.com/jubindev      [ 복사 ]  |
+|            ( 프로필 )              |
+|            ( 사진   )              |
+|                                    |
+|            @jubindev ✏️            |
+|   "프론트엔드 개발자 김주빈입니다." ✏️  |
+|                                    |
+|  🔗 주소: mylink.com/jubindev [복사]|
 |                                    |
 |  [   +   새로운 링크 추가하기     ]  |
 |                                    |
