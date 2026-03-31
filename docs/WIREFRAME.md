@@ -5,6 +5,22 @@
 
 ---
 
+## 0. 전체 페이지 흐름도 (Page Flow)
+
+사용자가 서비스에 진입하여 링크를 열람하기까지의 전체적인 흐름입니다.
+
+```mermaid
+graph TD
+    Main["Main Landing"] -->|Login with Google| Auth["Auth Process"]
+    Auth -->|Existing User| Dashboard["Dashboard (My Page)"]
+    Auth -->|New User| Onboarding["Onboarding / Init Profile"]
+    Onboarding --> Dashboard
+    Dashboard -->|Click 'View Page'| PublicProfile["Public Profile Page"]
+    PublicProfile -->|Click Link| ExternalSites["External Sites"]
+```
+
+---
+
 ## 1. 퍼블릭 프로필 화면 (Public Profile View)
 
 방문자가 소유자의 고유 URL(`mylink.com/nickname`)로 접속했을 때 나타나는 화면입니다.
