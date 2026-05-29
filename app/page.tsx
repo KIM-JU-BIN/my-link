@@ -304,11 +304,12 @@ function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
                 </AlertDialogCancel>
                 <AlertDialogAction 
                   disabled={isDeleting}
+                  variant="destructive"
                   onClick={(e) => {
                     e.preventDefault()
                     handleDeleteConfirm()
                   }}
-                  className="rounded-none bg-red-600 hover:bg-red-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
+                  className="rounded-none font-mono text-xs tracking-wider h-9 px-4 cursor-pointer shadow-xs"
                 >
                   {isDeleting ? "삭제 중..." : "삭제하기"}
                 </AlertDialogAction>
