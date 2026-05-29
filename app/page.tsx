@@ -1,12 +1,41 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { dummyUser, dummyLinks, type LinkItem } from "@/data/links"
 import { db } from "@/lib/firebase"
-import { collection, query, orderBy, onSnapshot, writeBatch, doc, addDoc } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, addDoc } from "firebase/firestore"
+
+export interface LinkItem {
+  id: string;
+  title: string;
+  url: string;
+  faviconUrl: string;
+  createdAt: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName: string;
+  username: string;
+  nickname: string;
+  bio: string;
+  profileImageUrl: string;
+  createdAt: string;
+}
+
+const dummyUser: UserProfile = {
+  id: "google_uid_123456789",
+  email: "user@example.com",
+  displayName: "Candy Kim",
+  username: "김주빈",
+  nickname: "candykim",
+  bio: "풀스택 개발자이자 향후 DBA를 희망하는 학생",
+  profileImageUrl: "/avatar.jpg",
+  createdAt: "2026-03-23T10:00:00.000Z"
+};
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,7 +92,6 @@ export default function Page() {
   const [links, setLinks] = useState<LinkItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
-  const isMigratingRef = useRef(false)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<LinkFormValues>({
     resolver: zodResolver(linkSchema),
@@ -73,47 +101,31 @@ export default function Page() {
     },
   })
 
-  useEffect(() => {
-    const q = query(collection(db, "users", "anonymous", "links"), orderBy("createdAt", "asc"))
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.empty && !isMigratingRef.current) {
-        isMigratingRef.current = true
-        try {
-          const batch = writeBatch(db)
-          dummyLinks.forEach((link) => {
-            const docRef = doc(db, "users", "anonymous", "links", link.id)
-            batch.set(docRef, {
-              title: link.title,
-              url: link.url,
-              faviconUrl: link.faviconUrl,
-              createdAt: link.createdAt,
-            })
-          })
-          await batch.commit()
-        } catch (err) {
-          console.error("초기 마이그레이션 실패: ", err)
-          isMigratingRef.current = false
-        }
-      } else {
-        const fetchedLinks = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          title: doc.data().title,
-          url: doc.data().url,
-          faviconUrl: doc.data().faviconUrl,
-          createdAt: doc.data().createdAt,
-        })) as LinkItem[]
-        setLinks(fetchedLinks)
-        setIsLoading(false)
-      }
-    }, (error) => {
-      console.error("onSnapshot 에러: ", error)
+  const fetchLinks = async () => {
+    setIsLoading(true)
+    try {
+      const q = query(collection(db, "users", "anonymous", "links"), orderBy("createdAt", "desc"))
+      const snapshot = await getDocs(q)
+      const fetchedLinks = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        title: doc.data().title,
+        url: doc.data().url,
+        faviconUrl: doc.data().faviconUrl,
+        createdAt: doc.data().createdAt,
+      })) as LinkItem[]
+      setLinks(fetchedLinks)
+    } catch (error) {
+      console.error("링크 로드 에러: ", error)
+    } finally {
       setIsLoading(false)
-    })
+    }
+  }
 
-    return () => unsubscribe()
+  useEffect(() => {
+    fetchLinks()
   }, [])
 
-  const onSubmit = async (data: LinkFormValues) => {
+  const handleAddLink = async (data: LinkFormValues) => {
     let domain = ""
     try {
       const urlObj = new URL(data.url)
@@ -124,7 +136,7 @@ export default function Page() {
 
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
 
-    const newLink = {
+    const newLinkData = {
       title: data.title,
       url: data.url,
       faviconUrl,
@@ -132,7 +144,12 @@ export default function Page() {
     }
 
     try {
-      await addDoc(collection(db, "users", "anonymous", "links"), newLink)
+      const docRef = await addDoc(collection(db, "users", "anonymous", "links"), newLinkData)
+      const newLinkItem: LinkItem = {
+        id: docRef.id,
+        ...newLinkData,
+      }
+      setLinks((prev) => [newLinkItem, ...prev])
       reset()
       setIsOpen(false)
     } catch (err) {
@@ -201,7 +218,7 @@ export default function Page() {
                 </DialogDescription>
               </DialogHeader>
               
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 my-2">
+              <form onSubmit={handleSubmit(handleAddLink)} className="space-y-4 my-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="title" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
                     제목
