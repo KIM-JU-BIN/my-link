@@ -50,7 +50,11 @@ export default function Page() {
     }
 
     try {
-      new URL(formattedUrl)
+      const parsedUrl = new URL(formattedUrl)
+      const hostnameParts = parsedUrl.hostname.split(".")
+      if (hostnameParts.length < 2 || hostnameParts[hostnameParts.length - 1].length < 2) {
+        throw new Error("Invalid domain structure")
+      }
     } catch (err) {
       setError("유효한 URL 형식이 아닙니다.")
       return
@@ -93,6 +97,7 @@ export default function Page() {
               src={dummyUser.profileImageUrl}
               alt={dummyUser.username}
               fill
+              sizes="96px"
               className="object-cover"
               priority
             />
