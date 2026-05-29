@@ -1,21 +1,68 @@
-# Next.js template
+# My Link (마이 링크)
 
-This is a Next.js template with shadcn/ui.
+바이브코딩(Vibe Coding) 강의 실습을 통해 구현한 개인 링크 아카이빙 및 프로필 서비스입니다.  
+사용자의 주요 SNS 채널, 블로그, 포트폴리오 등의 링크를 저장하고 관리할 수 있습니다.
 
-## Adding components
+---
 
-To add components to your app, run the following command:
+## 🛠️ 사용된 기술 및 도구 (Tech Stack)
 
-```bash
-npx shadcn@latest add button
+이 프로젝트는 최신 프레임워크와 검증된 라이브러리들을 활용하여 구축되었습니다.
+
+### 1. 프레임워크 & 언어 (Core)
+- **Next.js (v16.2.6)**: App Router 기반의 React 프레임워크로, 빠른 페이지 렌더링과 최적화된 라우팅을 지원합니다.
+- **React (v19.2.4)**: 컴포넌트 기반 UI 라이브러리입니다.
+- **TypeScript (v5)**: 안전하고 명확한 데이터 타입을 지정하여 코드의 안정성을 높였습니다.
+
+### 2. 스타일링 & UI 구성 (Design & UI)
+- **Tailwind CSS (v4)**: 유틸리티 클래스 기반의 빠른 스타일 아웃라인 설정을 사용했습니다.
+- **shadcn / Base UI**: 고품질의 재사용 가능한 컴포넌트 구조를 설계하는 데 활용했습니다.
+- **Next Themes**: 깔끔한 다크 모드와 라이트 모드 테마 전환을 제공합니다.
+- **Tabler Icons React**: UI 전반에 직관적인 아이콘 에셋을 적용하기 위해 사용했습니다.
+
+### 3. 데이터베이스 & 클라우드 연동 (Backend & DB)
+- **Firebase Firestore (v12.14.0)**: 구글의 NoSQL 데이터베이스를 활용하여 사용자가 추가한 링크 정보를 실시간으로 저장, 수정, 조회 및 삭제(CRUD)합니다.
+
+### 4. 폼 관리 및 데이터 검증 (Validation)
+- **React Hook Form (v7.76.1)**: 효율적이고 성능 저하 없는 폼 상태 관리를 지원합니다.
+- **Zod (v4.4.3)**: 폼 입력값(링크 제목, URL 등)의 형식을 엄격하고 직관적으로 검증(Validation)합니다.
+- **@hookform/resolvers**: React Hook Form과 Zod 스키마를 연동해 입력 오류를 실시간으로 피드백합니다.
+
+---
+
+## 🚀 프로젝트 실행 방법 (How to Run)
+
+로컬 환경에서 프로젝트를 실행하고 검증하는 방법은 다음과 같습니다.
+
+### 1. 환경 변수 설정
+프로젝트 루트 디렉토리에 `.env.local` 파일을 생성한 후, Firebase 프로젝트 정보를 기입합니다.
+
+```properties
+NEXT_PUBLIC_FIREBASE_API_KEY="YOUR_API_KEY"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="YOUR_AUTH_DOMAIN"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="YOUR_PROJECT_ID"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="YOUR_STORAGE_BUCKET"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="YOUR_MESSAGING_SENDER_ID"
+NEXT_PUBLIC_FIREBASE_APP_ID="YOUR_APP_ID"
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="YOUR_MEASUREMENT_ID"
 ```
 
-This will place the ui components in the `components` directory.
+### 2. 의존성 패키지 설치
+```bash
+npm install
+```
 
-## Using components
+### 3. 로컬 개발 서버 실행
+```bash
+npm run dev
+```
+개발 서버가 시작되면 브라우저에서 `http://localhost:3000 ` 으로 접속하여 페이지를 확인할 수 있습니다.
 
-To use the components in your app, import them as follows:
+### 4. 프로덕션 빌드 및 실행
+```bash
+# 코드 빌드 검증
+npm run build
 
-```tsx
-import { Button } from "@/components/ui/button";
+# 빌드 결과물 실행
+npm run start
 ```
