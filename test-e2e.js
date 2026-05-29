@@ -96,13 +96,6 @@ async function runTests() {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  let lastDialogMessage = "";
-  page.on("dialog", async (dialog) => {
-    lastDialogMessage = dialog.message();
-    console.log(`[Dialog Alert] 수신된 메시지: ${lastDialogMessage}`);
-    await dialog.accept();
-  });
-
   try {
     console.log(`${URL_TO_TEST} 접속 중...`);
     await page.goto(URL_TO_TEST);
@@ -128,40 +121,28 @@ async function runTests() {
 
     // 3. 유효성 검증 테스트
     console.log("검증 3: 입력 필드 유효성 검사 테스트");
-    const submitBtn = page.locator("button:has-text('추가하기')");
+    const submitBtn = page.locator("button:has-text('저장')");
     const cancelBtn = page.locator("button:has-text('취소')");
     
     // (a) 제목과 URL 모두 빈 채로 추가하기 클릭
-    lastDialogMessage = "";
     await submitBtn.click();
-    await page.waitForTimeout(500);
-    if (lastDialogMessage === "제목을 입력해주세요") {
-      console.log("  => [성공] 제목 누락 시 '제목을 입력해주세요' alert 노출");
-    } else {
-      throw new Error(`제목 누락 시 alert이 제대로 뜨지 않았습니다. 실제값: ${lastDialogMessage}`);
-    }
+    const titleError = page.locator("p:text-is('제목을 입력해주세요')");
+    await titleError.waitFor({ state: "visible", timeout: 2000 });
+    console.log("  => [성공] 제목 누락 시 '제목을 입력해주세요' 에러 UI 노출");
 
     // (b) 제목만 채우고 URL은 비워둔 상태로 테스트
     await page.fill("#title", "구글 테스트");
-    lastDialogMessage = "";
     await submitBtn.click();
-    await page.waitForTimeout(500);
-    if (lastDialogMessage === "주소를 입력해주세요") {
-      console.log("  => [성공] URL 누락 시 '주소를 입력해주세요' alert 노출");
-    } else {
-      throw new Error(`URL 누락 시 alert이 제대로 뜨지 않았습니다. 실제값: ${lastDialogMessage}`);
-    }
+    const urlError = page.locator("p:text-is('주소를 입력해주세요')");
+    await urlError.waitFor({ state: "visible", timeout: 2000 });
+    console.log("  => [성공] URL 누락 시 '주소를 입력해주세요' 에러 UI 노출");
 
     // (c) 잘못된 URL 형식 입력 시 테스트
     await page.fill("#url", "invalid_url_format");
-    lastDialogMessage = "";
     await submitBtn.click();
-    await page.waitForTimeout(500);
-    if (lastDialogMessage === "유효한 URL 형식이 아닙니다.") {
-      console.log("  => [성공] 잘못된 URL 형식 입력 시 '유효한 URL 형식이 아닙니다.' alert 노출");
-    } else {
-      throw new Error(`유효하지 않은 URL 형식 alert이 제대로 뜨지 않았습니다. 실제값: ${lastDialogMessage}`);
-    }
+    const formatError = page.locator("p:text-is('올바른 URL 형식이 아닙니다 (예: https://example.com).')");
+    await formatError.waitFor({ state: "visible", timeout: 2000 });
+    console.log("  => [성공] 잘못된 URL 형식 입력 시 '올바른 URL 형식이 아닙니다 (예: https://example.com).' 에러 UI 노출");
 
     // 4. 정상 등록 테스트
     console.log("검증 4: 정상적인 새 링크 등록 테스트");

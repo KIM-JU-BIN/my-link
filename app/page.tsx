@@ -50,7 +50,7 @@ const linkSchema = z.object({
         }
       },
       {
-        message: "유효한 URL 형식이 아닙니다.",
+        message: "올바른 URL 형식이 아닙니다 (예: https://example.com).",
       }
     ),
 })
@@ -61,7 +61,7 @@ export default function Page() {
   const [links, setLinks] = useState(dummyLinks)
   const [isOpen, setIsOpen] = useState(false)
 
-  const { register, handleSubmit, reset } = useForm<LinkFormValues>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<LinkFormValues>({
     resolver: zodResolver(linkSchema),
     defaultValues: {
       title: "",
@@ -91,17 +91,6 @@ export default function Page() {
     setLinks((prev) => [...prev, newLink])
     reset()
     setIsOpen(false)
-  }
-
-  const onError = (errors: FieldErrors<LinkFormValues>) => {
-    if (errors.title) {
-      alert(errors.title.message)
-      return
-    }
-    if (errors.url) {
-      alert(errors.url.message)
-      return
-    }
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -165,7 +154,7 @@ export default function Page() {
                 </DialogDescription>
               </DialogHeader>
               
-              <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-4 my-2">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 my-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="title" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
                     제목
@@ -177,6 +166,11 @@ export default function Page() {
                     {...register("title")}
                     className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                   />
+                  {errors.title && (
+                    <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                      {errors.title.message}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="space-y-1.5">
@@ -190,6 +184,11 @@ export default function Page() {
                     {...register("url")}
                     className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                   />
+                  {errors.url && (
+                    <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                      {errors.url.message}
+                    </p>
+                  )}
                 </div>
 
                 <DialogFooter className="pt-2 flex flex-row gap-2 justify-end">
@@ -206,9 +205,9 @@ export default function Page() {
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-none bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
+                    className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
                   >
-                    추가하기
+                    저장
                   </Button>
                 </DialogFooter>
               </form>
