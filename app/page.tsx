@@ -118,7 +118,7 @@ export default function Page() {
           {/* 링크 추가 다이얼로그 (가장 위에 배치 및 프라이머리 색상 적용) */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger render={
-              <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
+              <Button className="w-full h-12 bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
                 <IconPlus className="w-4 h-4" />
                 새 링크 추가
               </Button>
@@ -184,7 +184,7 @@ export default function Page() {
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-none bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
+                    className="rounded-none bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
                   >
                     추가하기
                   </Button>
