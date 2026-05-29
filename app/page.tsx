@@ -19,69 +19,96 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { IconPlus } from "@tabler/icons-react"
+import { z } from "zod"
+import { useForm, FieldErrors } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+
+const linkSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "제목을 입력해주세요"),
+  url: z
+    .string()
+    .trim()
+    .min(1, "주소를 입력해주세요")
+    .transform((val) => {
+      let formatted = val
+      if (!/^https?:\/\//i.test(formatted)) {
+        formatted = `https://${formatted}`
+      }
+      return formatted
+    })
+    .refine(
+      (val) => {
+        try {
+          const parsedUrl = new URL(val)
+          const hostnameParts = parsedUrl.hostname.split(".")
+          return hostnameParts.length >= 2 && hostnameParts[hostnameParts.length - 1].length >= 2
+        } catch {
+          return false
+        }
+      },
+      {
+        message: "유효한 URL 형식이 아닙니다.",
+      }
+    ),
+})
+
+type LinkFormValues = z.infer<typeof linkSchema>
 
 export default function Page() {
   const [links, setLinks] = useState(dummyLinks)
-  const [title, setTitle] = useState("")
-  const [url, setUrl] = useState("")
   const [isOpen, setIsOpen] = useState(false)
-  const [error, setError] = useState("")
 
-  const handleAddLink = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+  const { register, handleSubmit, reset } = useForm<LinkFormValues>({
+    resolver: zodResolver(linkSchema),
+    defaultValues: {
+      title: "",
+      url: "",
+    },
+  })
 
-    const trimmedTitle = title.trim()
-    const trimmedUrl = url.trim()
-
-    if (!trimmedTitle) {
-      setError("제목을 입력해주세요.")
-      return
-    }
-
-    if (!trimmedUrl) {
-      setError("URL을 입력해주세요.")
-      return
-    }
-
-    let formattedUrl = trimmedUrl
-    if (!/^https?:\/\//i.test(formattedUrl)) {
-      formattedUrl = `https://${formattedUrl}`
-    }
-
-    try {
-      const parsedUrl = new URL(formattedUrl)
-      const hostnameParts = parsedUrl.hostname.split(".")
-      if (hostnameParts.length < 2 || hostnameParts[hostnameParts.length - 1].length < 2) {
-        throw new Error("Invalid domain structure")
-      }
-    } catch (err) {
-      setError("유효한 URL 형식이 아닙니다.")
-      return
-    }
-
+  const onSubmit = (data: LinkFormValues) => {
     let domain = ""
     try {
-      const urlObj = new URL(formattedUrl)
+      const urlObj = new URL(data.url)
       domain = urlObj.hostname
     } catch (err) {
-      domain = formattedUrl.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0]
+      domain = data.url.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0]
     }
 
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
 
     const newLink = {
       id: `link_${Date.now()}`,
-      title: trimmedTitle,
-      url: formattedUrl,
+      title: data.title,
+      url: data.url,
       faviconUrl,
       createdAt: new Date().toISOString(),
     }
 
     setLinks((prev) => [...prev, newLink])
-    setTitle("")
-    setUrl("")
+    reset()
     setIsOpen(false)
+  }
+
+  const onError = (errors: FieldErrors<LinkFormValues>) => {
+    if (errors.title) {
+      alert(errors.title.message)
+      return
+    }
+    if (errors.url) {
+      alert(errors.url.message)
+      return
+    }
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) {
+      reset()
+    }
   }
 
   return (
@@ -121,7 +148,7 @@ export default function Page() {
         <div className="w-full flex flex-col gap-4">
           
           {/* 링크 추가 다이얼로그 (가장 위에 배치 및 프라이머리 색상 적용) */}
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger render={
               <Button className="w-full h-12 bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
                 <IconPlus className="w-4 h-4" />
@@ -138,7 +165,7 @@ export default function Page() {
                 </DialogDescription>
               </DialogHeader>
               
-              <form onSubmit={handleAddLink} className="space-y-4 my-2">
+              <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-4 my-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="title" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
                     제목
@@ -147,8 +174,7 @@ export default function Page() {
                     id="title"
                     type="text"
                     placeholder="예: 내 기술 블로그"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    {...register("title")}
                     className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                   />
                 </div>
@@ -161,26 +187,17 @@ export default function Page() {
                     id="url"
                     type="text"
                     placeholder="예: blog.example.com"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    {...register("url")}
                     className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                   />
                 </div>
-
-                {error && (
-                  <p className="text-[10px] text-red-500 font-mono tracking-wider">
-                    {error}
-                  </p>
-                )}
 
                 <DialogFooter className="pt-2 flex flex-row gap-2 justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setTitle("")
-                      setUrl("")
-                      setError("")
+                      reset()
                       setIsOpen(false)
                     }}
                     className="rounded-none font-mono text-xs tracking-wider border-slate-200 text-slate-500 hover:bg-slate-50 h-9 px-4 cursor-pointer"
