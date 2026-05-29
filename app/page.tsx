@@ -12,6 +12,7 @@ export interface LinkItem {
   url: string;
   faviconUrl: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface UserProfile {
@@ -347,6 +348,7 @@ export default function Page() {
         url: doc.data().url,
         faviconUrl: doc.data().faviconUrl,
         createdAt: doc.data().createdAt,
+        updatedAt: doc.data().updatedAt || undefined,
       })) as LinkItem[]
       setLinks(fetchedLinks)
     } catch (error) {
@@ -405,13 +407,15 @@ export default function Page() {
   const handleUpdateLink = async (id: string, title: string, url: string, faviconUrl: string) => {
     try {
       const linkRef = doc(db, "users", "anonymous", "links", id)
+      const updatedAt = new Date().toISOString()
       await updateDoc(linkRef, {
         title,
         url,
         faviconUrl,
+        updatedAt,
       })
       setLinks((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, title, url, faviconUrl } : item))
+        prev.map((item) => (item.id === id ? { ...item, title, url, faviconUrl, updatedAt } : item))
       )
     } catch (err) {
       console.error("링크 수정 실패: ", err)
