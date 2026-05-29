@@ -31,7 +31,7 @@ const dummyUser: UserProfile = {
   displayName: "Candy Kim",
   username: "김주빈",
   nickname: "candykim",
-  bio: "풀스택 개발자이자 향후 DBA를 희망하는 학생",
+  bio: "풀스택을 공부하며 향후 DBA를 희망하는 학생",
   profileImageUrl: "/avatar.jpg",
   createdAt: "2026-03-23T10:00:00.000Z"
 };
@@ -573,11 +573,6 @@ export default function Page() {
               />
             ))
           )}
-        </div>
-
-        {/* 다크모드 가이드 */}
-        <div className="font-mono text-[9px] text-slate-300 tracking-wider mt-4">
-          (Press <kbd className="bg-slate-50 px-1 py-0.5 rounded border border-slate-100 text-[8px]">d</kbd> to toggle dark mode)
         </div>
 
       </div>
