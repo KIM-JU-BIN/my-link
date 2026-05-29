@@ -92,6 +92,7 @@ export default function Page() {
   const [links, setLinks] = useState<LinkItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<LinkFormValues>({
     resolver: zodResolver(linkSchema),
@@ -126,6 +127,7 @@ export default function Page() {
   }, [])
 
   const handleAddLink = async (data: LinkFormValues) => {
+    setIsSubmitting(true)
     let domain = ""
     try {
       const urlObj = new URL(data.url)
@@ -154,6 +156,8 @@ export default function Page() {
       setIsOpen(false)
     } catch (err) {
       console.error("링크 저장 실패: ", err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -228,6 +232,7 @@ export default function Page() {
                     type="text"
                     placeholder="예: 내 기술 블로그"
                     {...register("title")}
+                    disabled={isSubmitting}
                     className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                   />
                   {errors.title && (
@@ -246,6 +251,7 @@ export default function Page() {
                     type="text"
                     placeholder="예: blog.example.com"
                     {...register("url")}
+                    disabled={isSubmitting}
                     className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                   />
                   {errors.url && (
@@ -259,6 +265,7 @@ export default function Page() {
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isSubmitting}
                     onClick={() => {
                       reset()
                       setIsOpen(false)
@@ -269,9 +276,10 @@ export default function Page() {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={isSubmitting}
                     className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
                   >
-                    저장
+                    {isSubmitting ? "저장 중..." : "저장"}
                   </Button>
                 </DialogFooter>
               </form>
