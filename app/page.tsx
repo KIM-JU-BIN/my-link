@@ -3,9 +3,8 @@
 import * as React from "react"
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import Link from "next/link"
 import { db } from "@/lib/firebase"
-import { collection, query, orderBy, getDocs, addDoc } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore"
 
 export interface LinkItem {
   id: string;
@@ -49,7 +48,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { IconPlus, IconLoader2 as Loader2 } from "@tabler/icons-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { IconPlus, IconLoader2 as Loader2, IconPencil, IconTrash } from "@tabler/icons-react"
 import { z } from "zod"
 import { useForm, FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -87,6 +97,229 @@ const linkSchema = z.object({
 })
 
 type LinkFormValues = z.infer<typeof linkSchema>
+
+interface LinkCardProps {
+  link: LinkItem;
+  onUpdate: (id: string, title: string, url: string, faviconUrl: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}
+
+function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isAlertOpen, setIsAlertOpen] = useState(false)
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<LinkFormValues>({
+    resolver: zodResolver(linkSchema),
+    defaultValues: {
+      title: link.title,
+      url: link.url,
+    },
+  })
+
+  useEffect(() => {
+    reset({
+      title: link.title,
+      url: link.url,
+    })
+  }, [link, reset, isEditing])
+
+  const handleEditSubmit = async (data: LinkFormValues) => {
+    setIsSubmitting(true)
+    let domain = ""
+    try {
+      const urlObj = new URL(data.url)
+      domain = urlObj.hostname
+    } catch (err) {
+      domain = data.url.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0]
+    }
+    const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+
+    try {
+      await onUpdate(link.id, data.title, data.url, faviconUrl)
+      setIsEditing(false)
+    } catch (err) {
+      console.error("수정 오류: ", err)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true)
+    try {
+      await onDelete(link.id)
+      setIsAlertOpen(false)
+    } catch (err) {
+      console.error("삭제 오류: ", err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <Card className="bg-white border-slate-200 rounded-none w-full p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        <form onSubmit={handleSubmit(handleEditSubmit)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor={`edit-title-${link.id}`} className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
+              제목
+            </Label>
+            <Input
+              id={`edit-title-${link.id}`}
+              type="text"
+              placeholder="예: 내 기술 블로그"
+              {...register("title")}
+              disabled={isSubmitting}
+              className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300 w-full"
+            />
+            {errors.title && (
+              <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                {errors.title.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor={`edit-url-${link.id}`} className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
+              링크 URL
+            </Label>
+            <Input
+              id={`edit-url-${link.id}`}
+              type="text"
+              placeholder="예: blog.example.com"
+              {...register("url")}
+              disabled={isSubmitting}
+              className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300 w-full"
+            />
+            {errors.url && (
+              <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                {errors.url.message}
+              </p>
+            )}
+          </div>
+
+          <div className="pt-2 flex flex-row gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={() => {
+                reset()
+                setIsEditing(false)
+              }}
+              className="rounded-none font-mono text-xs tracking-wider border-slate-200 text-slate-500 hover:bg-slate-50 h-9 px-4 cursor-pointer"
+            >
+              취소
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
+            >
+              {isSubmitting ? "저장 중..." : "저장"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="relative hover:border-slate-300 bg-white transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] border-slate-200/80 rounded-none overflow-hidden w-full">
+      <div className="flex items-center justify-between min-h-[72px] px-6 py-4">
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-4 flex-1 cursor-pointer select-none py-1 min-w-0"
+        >
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-2xs">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={link.faviconUrl} 
+              alt={link.title}
+              className="w-5 h-5 object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://www.google.com/s2/favicons?domain=example.com";
+              }}
+            />
+          </div>
+          
+          <span className="text-sm font-semibold tracking-wider font-mono text-slate-700 hover:text-[#1A26EE] transition-colors duration-150 text-left break-all line-clamp-2 pr-2">
+            {link.title}
+          </span>
+        </a>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsEditing(true)
+            }}
+            className="h-8 w-8 rounded-none border border-slate-200/60 hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-0"
+            title="수정"
+          >
+            <IconPencil className="w-4 h-4" />
+          </Button>
+
+          <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+            <AlertDialogTrigger render={
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setIsAlertOpen(true)
+                }}
+                className="h-8 w-8 rounded-none border border-slate-200/60 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer p-0"
+                title="삭제"
+              >
+                <IconTrash className="w-4 h-4" />
+              </Button>
+            } />
+            <AlertDialogContent className="max-w-md rounded-none border border-slate-200 bg-white p-6 shadow-xl font-mono text-xs">
+              <AlertDialogHeader className="gap-2 text-left">
+                <AlertDialogTitle className="text-base font-bold tracking-wider text-slate-800 font-mono">
+                  정말 삭제하시겠습니까?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs text-slate-500 font-mono tracking-wider mt-2">
+                  삭제할 링크: <span className="font-bold text-slate-700">[{link.title}]</span>
+                  <span className="block mt-2 font-semibold text-red-500">
+                    이 작업은 되돌릴 수 없습니다.
+                  </span>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="pt-4 flex flex-row gap-2 justify-end">
+                <AlertDialogCancel 
+                  disabled={isDeleting}
+                  className="rounded-none font-mono text-xs tracking-wider border-slate-200 text-slate-500 hover:bg-slate-50 h-9 px-4 cursor-pointer"
+                >
+                  취소
+                </AlertDialogCancel>
+                <AlertDialogAction 
+                  disabled={isDeleting}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleDeleteConfirm()
+                  }}
+                  className="rounded-none bg-red-600 hover:bg-red-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
+                >
+                  {isDeleting ? "삭제 중..." : "삭제하기"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    </Card>
+  )
+}
 
 export default function Page() {
   const [links, setLinks] = useState<LinkItem[]>([])
@@ -165,6 +398,34 @@ export default function Page() {
     setIsOpen(open)
     if (!open) {
       reset()
+    }
+  }
+
+  const handleUpdateLink = async (id: string, title: string, url: string, faviconUrl: string) => {
+    try {
+      const linkRef = doc(db, "users", "anonymous", "links", id)
+      await updateDoc(linkRef, {
+        title,
+        url,
+        faviconUrl,
+      })
+      setLinks((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, title, url, faviconUrl } : item))
+      )
+    } catch (err) {
+      console.error("링크 수정 실패: ", err)
+      throw err
+    }
+  }
+
+  const handleDeleteLink = async (id: string) => {
+    try {
+      const linkRef = doc(db, "users", "anonymous", "links", id)
+      await deleteDoc(linkRef)
+      setLinks((prev) => prev.filter((item) => item.id !== id))
+    } catch (err) {
+      console.error("링크 삭제 실패: ", err)
+      throw err
     }
   }
 
@@ -303,37 +564,12 @@ export default function Page() {
             </div>
           ) : (
             links.map((link) => (
-              <Link 
+              <LinkCard 
                 key={link.id} 
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block group w-full"
-              >
-                <Card className="relative hover:border-slate-300 bg-white transition-all duration-200 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] border-slate-200/80 rounded-none overflow-hidden w-full">
-                  <CardHeader className="flex flex-row items-center justify-center py-5 px-6 relative min-h-[72px]">
-                    
-                    {/* 좌측 고정 파비콘 이미지 */}
-                    <div className="absolute left-6 w-8 h-8 rounded-full overflow-hidden bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-2xs">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
-                        src={link.faviconUrl} 
-                        alt={link.title}
-                        className="w-5 h-5 object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = "https://www.google.com/s2/favicons?domain=example.com";
-                        }}
-                      />
-                    </div>
-                    
-                    {/* 중앙 정렬 텍스트 */}
-                    <CardTitle className="text-sm font-semibold tracking-wider font-mono text-slate-700 group-hover:text-[#1A26EE] transition-colors duration-150 text-center">
-                      {link.title}
-                    </CardTitle>
-
-                  </CardHeader>
-                </Card>
-              </Link>
+                link={link}
+                onUpdate={handleUpdateLink}
+                onDelete={handleDeleteLink}
+              />
             ))
           )}
         </div>
