@@ -184,7 +184,7 @@ export default function Page() {
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-none bg-slate-900 hover:bg-slate-800 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer"
+                    className="rounded-none bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
                   >
                     추가하기
                   </Button>
