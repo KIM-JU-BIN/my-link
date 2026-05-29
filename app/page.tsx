@@ -115,45 +115,10 @@ export default function Page() {
         {/* 링크 추가 및 목록 섹션 */}
         <div className="w-full flex flex-col gap-4">
           
-          {/* 기존 및 추가된 링크 목록 */}
-          {links.map((link) => (
-            <Link 
-              key={link.id} 
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block group w-full"
-            >
-              <Card className="relative hover:border-slate-300 bg-white transition-all duration-200 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] border-slate-200/80 rounded-none overflow-hidden w-full">
-                <CardHeader className="flex flex-row items-center justify-center py-5 px-6 relative min-h-[72px]">
-                  
-                  {/* 좌측 고정 파비콘 이미지 */}
-                  <div className="absolute left-6 w-8 h-8 rounded-full overflow-hidden bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-2xs">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={link.faviconUrl} 
-                      alt={link.title}
-                      className="w-5 h-5 object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://www.google.com/s2/favicons?domain=example.com";
-                      }}
-                    />
-                  </div>
-                  
-                  {/* 중앙 정렬 텍스트 */}
-                  <CardTitle className="text-sm font-semibold tracking-wider font-mono text-slate-700 group-hover:text-[#1A26EE] transition-colors duration-150 text-center">
-                    {link.title}
-                  </CardTitle>
-
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
-
-          {/* 링크 추가 다이얼로그 (가장 아래에 배치 및 카드 배경색과 유사하게 디자인) */}
+          {/* 링크 추가 다이얼로그 (가장 위에 배치 및 프라이머리 색상 적용) */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger render={
-              <Button className="w-full h-12 bg-white hover:bg-slate-50/50 text-slate-600 border border-slate-200/80 hover:border-slate-300 rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-pointer">
+              <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
                 <IconPlus className="w-4 h-4" />
                 새 링크 추가
               </Button>
@@ -227,6 +192,41 @@ export default function Page() {
               </form>
             </DialogContent>
           </Dialog>
+
+          {/* 기존 및 추가된 링크 목록 */}
+          {links.map((link) => (
+            <Link 
+              key={link.id} 
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block group w-full"
+            >
+              <Card className="relative hover:border-slate-300 bg-white transition-all duration-200 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] border-slate-200/80 rounded-none overflow-hidden w-full">
+                <CardHeader className="flex flex-row items-center justify-center py-5 px-6 relative min-h-[72px]">
+                  
+                  {/* 좌측 고정 파비콘 이미지 */}
+                  <div className="absolute left-6 w-8 h-8 rounded-full overflow-hidden bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-2xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={link.faviconUrl} 
+                      alt={link.title}
+                      className="w-5 h-5 object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://www.google.com/s2/favicons?domain=example.com";
+                      }}
+                    />
+                  </div>
+                  
+                  {/* 중앙 정렬 텍스트 */}
+                  <CardTitle className="text-sm font-semibold tracking-wider font-mono text-slate-700 group-hover:text-[#1A26EE] transition-colors duration-150 text-center">
+                    {link.title}
+                  </CardTitle>
+
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
         </div>
 
         {/* 다크모드 가이드 */}
