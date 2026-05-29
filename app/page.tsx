@@ -49,7 +49,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { IconPlus } from "@tabler/icons-react"
+import { IconPlus, IconLoader2 as Loader2 } from "@tabler/icons-react"
 import { z } from "zod"
 import { useForm, FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -128,6 +128,8 @@ export default function Page() {
 
   const handleAddLink = async (data: LinkFormValues) => {
     setIsSubmitting(true)
+    setIsOpen(false)
+    reset()
     let domain = ""
     try {
       const urlObj = new URL(data.url)
@@ -152,8 +154,6 @@ export default function Page() {
         ...newLinkData,
       }
       setLinks((prev) => [newLinkItem, ...prev])
-      reset()
-      setIsOpen(false)
     } catch (err) {
       console.error("링크 저장 실패: ", err)
     } finally {
@@ -207,9 +207,15 @@ export default function Page() {
           {/* 링크 추가 다이얼로그 (가장 위에 배치 및 프라이머리 색상 적용) */}
           <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger render={
-              <Button className="w-full h-12 bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
-                <IconPlus className="w-4 h-4" />
-                새 링크 추가
+              <Button 
+                disabled={isSubmitting}
+                className="w-full h-12 bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <IconPlus className="w-4 h-4" />
+                )}
+                {isSubmitting ? "추가 중..." : "새 링크 추가"}
               </Button>
             } />
             <DialogContent className="max-w-md rounded-none border border-slate-200 bg-white p-6 shadow-xl">
@@ -288,15 +294,9 @@ export default function Page() {
 
           {/* 기존 및 추가된 링크 목록 */}
           {isLoading ? (
-            Array.from({ length: 3 }).map((_, idx) => (
-              <div 
-                key={idx} 
-                className="w-full h-[72px] bg-slate-100/50 border border-slate-100 rounded-none animate-pulse flex items-center px-6 relative"
-              >
-                <div className="absolute left-6 w-8 h-8 rounded-full bg-slate-200 shrink-0" />
-                <div className="h-4 bg-slate-200 rounded-xs w-28 mx-auto" />
-              </div>
-            ))
+            <div className="w-full flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
+            </div>
           ) : links.length === 0 ? (
             <div className="w-full text-center py-10 font-mono text-xs text-slate-400">
               등록된 링크가 없습니다.
