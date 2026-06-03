@@ -375,8 +375,6 @@ export default function Page() {
 
   const handleAddLink = async (data: LinkFormValues) => {
     setIsSubmitting(true)
-    setIsOpen(false)
-    reset()
     let domain = ""
     try {
       const urlObj = new URL(data.url)
@@ -401,6 +399,8 @@ export default function Page() {
         ...newLinkData,
       }
       setLinks((prev) => [newLinkItem, ...prev])
+      setIsOpen(false)
+      reset()
     } catch (err) {
       console.error("링크 저장 실패: ", err)
     } finally {
@@ -560,9 +560,16 @@ export default function Page() {
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs"
+                    className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-1.5"
                   >
-                    {isSubmitting ? "저장 중..." : "저장"}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>저장 중...</span>
+                      </>
+                    ) : (
+                      "저장"
+                    )}
                   </Button>
                 </DialogFooter>
               </form>
