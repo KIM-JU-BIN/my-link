@@ -320,10 +320,7 @@ function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
                   className="rounded-none font-mono text-xs tracking-wider h-9 px-4 cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
                 >
                   {isDeleting ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>삭제 중...</span>
-                    </>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
                     "삭제하기"
                   )}
