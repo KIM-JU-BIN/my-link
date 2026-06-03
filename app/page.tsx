@@ -297,7 +297,7 @@ function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
                   정말 삭제하시겠습니까?
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-xs text-slate-500 font-mono tracking-wider mt-2">
-                  삭제할 링크: <span className="font-bold text-slate-700">[{link.title}]</span>
+                  "<span className="font-bold text-slate-700">{link.title}</span>" 링크를 삭제합니다.
                   <span className="block mt-2 font-semibold text-red-500">
                     이 작업은 되돌릴 수 없습니다.
                   </span>
