@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react"
 import Image from "next/image"
 import { notFound } from "next/navigation"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { collection, query, getDocs, where, orderBy } from "firebase/firestore"
+import { collection, query, getDocs, where, orderBy, doc, getDoc } from "firebase/firestore"
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth"
 import { db, auth, googleProvider } from "@/lib/firebase"
 import { Header } from "@/components/header"
@@ -59,6 +59,21 @@ export default function PublicProfilePage({ params }: PageProps) {
       toast.error("로그아웃에 실패했습니다.")
     }
   }
+
+  // 0. 로그인한 유저 본인의 프로필 정보 조회 Query (헤더 내 페이지 링크용)
+  const { data: currentUserProfile } = useQuery({
+    queryKey: ["currentUserProfile", currentUser?.uid],
+    queryFn: async () => {
+      if (!currentUser) return null
+      const userDocRef = doc(db, "users", currentUser.uid)
+      const userSnap = await getDoc(userDocRef)
+      if (userSnap.exists()) {
+        return userSnap.data()
+      }
+      return null
+    },
+    enabled: !!currentUser,
+  })
 
   // 1. displayName으로 유저 프로필 조회 Query
   const { data: profile, isLoading: isProfileLoading, isError: isProfileError } = useQuery({
@@ -124,10 +139,21 @@ export default function PublicProfilePage({ params }: PageProps) {
     notFound()
   }
 
+  // Firestore 쿼리가 아직 로딩 중일 수 있으므로,
+  // currentUserProfile이 없으면 Firebase Auth email 기반 닉네임을 임시 fallback으로 사용
+  const resolvedDisplayName =
+    currentUserProfile?.displayName ||
+    (currentUser?.email ? currentUser.email.split("@")[0] : undefined)
+
   return (
     <div className="min-h-svh w-full bg-[#FAFBFB] flex flex-col items-center justify-start overflow-x-hidden font-mono">
       {/* 헤더 추가 (방문자가 로그인 하거나 작성자 본인이 자신의 페이지를 볼 때 헤더 활용) */}
-      <Header user={currentUser} onSignIn={handleSignIn} onSignOut={handleSignOut} />
+      <Header 
+        user={currentUser} 
+        profileDisplayName={resolvedDisplayName} 
+        onSignIn={handleSignIn} 
+        onSignOut={handleSignOut} 
+      />
 
       <div className="w-full max-w-md flex flex-col items-center gap-10 px-4 py-16 flex-1 justify-start">
         {/* 프로필 정보 영역 */}

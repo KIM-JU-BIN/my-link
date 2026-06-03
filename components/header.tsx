@@ -22,7 +22,8 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
   const handleCopyLink = async () => {
     if (!user) return
 
-    const path = profileDisplayName ? `/${profileDisplayName}` : `/users/${user.uid}`
+    // profileDisplayName이 없으면 홈으로 fallback (존재하지 않는 /users/:uid 경로 방지)
+    const path = profileDisplayName ? `/${profileDisplayName}` : `/`
     const personalUrl = `${window.location.origin}${path} ` // URL 뒤 공백 룰 준수
     try {
       await navigator.clipboard.writeText(personalUrl)
@@ -62,6 +63,14 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
         <div className="flex items-center gap-3 relative" ref={dropdownRef}>
           {user ? (
             <>
+              {/* 내 페이지 버튼 → 수정 가능한 메인 대시보드(/)로 이동 */}
+              <a
+                href="/"
+                className="h-8 inline-flex items-center gap-1 px-2.5 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 font-sans text-[10px] sm:text-[11px] font-bold tracking-wider transition-all duration-150 cursor-pointer select-none no-underline decoration-none shrink-0"
+              >
+                <span>내 페이지</span>
+              </a>
+
               {/* 프로필 이미지 버튼 */}
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -92,9 +101,9 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
 
                   <div className="h-px bg-slate-100 my-1.5"></div>
 
-                  {/* 내 페이지 미리보기 */}
+                  {/* 내 페이지 미리보기 (displayName이 없으면 홈으로 fallback) */}
                   <a
-                    href={profileDisplayName ? `/${profileDisplayName}` : `/users/${user.uid}`}
+                    href={profileDisplayName ? `/${profileDisplayName}` : `/`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setIsDropdownOpen(false)}
