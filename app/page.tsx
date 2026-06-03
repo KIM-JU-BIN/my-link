@@ -4,7 +4,7 @@ import * as React from "react"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { db, auth, googleProvider } from "@/lib/firebase"
-import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc, where } from "firebase/firestore"
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth"
 import { Header } from "@/components/header"
 
@@ -101,6 +101,25 @@ const linkSchema = z.object({
 })
 
 type LinkFormValues = z.infer<typeof linkSchema>
+
+const profileSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(1, "이름을 입력해주세요"),
+  displayName: z
+    .string()
+    .trim()
+    .min(3, "디스플레이 네임은 최소 3자 이상이어야 합니다.")
+    .max(16, "디스플레이 네임은 최대 16자 이하이어야 합니다.")
+    .regex(/^[a-z0-9_]+$/, "영문 소문자, 숫자, 밑줄(_)만 사용 가능합니다."),
+  bio: z
+    .string()
+    .trim()
+    .max(150, "한 줄 소개는 최대 150자 이하이어야 합니다."),
+})
+
+type ProfileFormValues = z.infer<typeof profileSchema>
 
 interface LinkCardProps {
   link: LinkItem;
@@ -361,6 +380,45 @@ export default function Page() {
     },
   })
 
+  // 프로필 수정 상태 관리 (개별 필드 수정)
+  const [activeEditType, setActiveEditType] = useState<"username" | "displayName" | "bio" | null>(null)
+  const [checkedDisplayName, setCheckedDisplayName] = useState("")
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
+  const [isProfileSubmitting, setIsProfileSubmitting] = useState(false)
+
+  const {
+    register: registerProfile,
+    handleSubmit: handleProfileSubmit,
+    reset: resetProfile,
+    watch: watchProfile,
+    formState: { errors: profileErrors },
+  } = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      username: "",
+      displayName: "",
+      bio: "",
+    },
+  })
+
+  // 프로필 로드 및 수정 모달 진입 시 폼 데이터 초기화
+  useEffect(() => {
+    if (profile && activeEditType) {
+      resetProfile({
+        username: profile.username || "",
+        displayName: profile.displayName || "",
+        bio: profile.bio || "",
+      })
+      if (activeEditType === "displayName") {
+        setCheckedDisplayName(profile.displayName || "")
+      }
+    }
+  }, [profile, resetProfile, activeEditType])
+
+  const currentDisplayName = watchProfile("displayName")
+  const isDisplayNameChanged = currentDisplayName !== (profile?.displayName || "")
+  const isDuplicateChecked = !isDisplayNameChanged || (currentDisplayName === checkedDisplayName)
+
   // Firebase Auth 상태 리스너 등록 및 프로필 정보 Firestore 동기화
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -506,6 +564,78 @@ export default function Page() {
     }
   }
 
+  // 디스플레이 네임 중복 검사
+  const handleCheckDuplicate = async () => {
+    const target = currentDisplayName?.trim()
+    if (!target) return
+
+    const regex = /^[a-z0-9_]{3,16}$/
+    if (!regex.test(target)) {
+      toast.error("디스플레이 네임은 3~16자의 영문 소문자, 숫자, 밑줄(_)만 사용 가능합니다.")
+      return
+    }
+
+    setIsCheckingDuplicate(true)
+    try {
+      const q = query(collection(db, "users"), where("displayName", "==", target))
+      const querySnapshot = await getDocs(q)
+      const isDuplicate = querySnapshot.docs.some((doc) => doc.id !== user?.uid)
+
+      if (isDuplicate) {
+        toast.error("이미 사용 중인 디스플레이 네임입니다.")
+      } else {
+        toast.success("사용 가능한 디스플레이 네임입니다.")
+        setCheckedDisplayName(target)
+      }
+    } catch (err) {
+      console.error("중복 검사 실패: ", err)
+      toast.error("중복 확인 중 오류가 발생했습니다.")
+    } finally {
+      setIsCheckingDuplicate(false)
+    }
+  }
+
+  // 프로필 저장
+  const onSaveProfile = async (data: ProfileFormValues) => {
+    if (!user || !activeEditType) return
+    if (activeEditType === "displayName" && !isDuplicateChecked) {
+      toast.error("디스플레이 네임 중복 확인을 해주세요.")
+      return
+    }
+
+    setIsProfileSubmitting(true)
+    try {
+      const userDocRef = doc(db, "users", user.uid)
+      
+      const updateData: Partial<UserProfile> = {}
+      if (activeEditType === "username") {
+        updateData.username = data.username
+      } else if (activeEditType === "displayName") {
+        updateData.displayName = data.displayName
+      } else if (activeEditType === "bio") {
+        updateData.bio = data.bio
+      }
+
+      await updateDoc(userDocRef, updateData)
+
+      setProfile((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          ...updateData,
+        } as any
+      })
+      
+      toast.success("수정되었습니다.")
+      setActiveEditType(null)
+    } catch (err) {
+      console.error("프로필 수정 오류: ", err)
+      toast.error("프로필 수정에 실패했습니다.")
+    } finally {
+      setIsProfileSubmitting(false)
+    }
+  }
+
   const handleUpdateLink = async (id: string, title: string, url: string, faviconUrl: string) => {
     if (!user) return
     try {
@@ -609,8 +739,148 @@ export default function Page() {
         ) : (
           <>
             {/* 프로필 섹션 */}
-            <div className="flex flex-col items-center text-center gap-2 w-full mt-4 animate-fade-in">
-              {/* 프로필 이미지 */}
+            <div className="relative flex flex-col items-center text-center gap-2 w-full mt-4 animate-fade-in">
+              {/* 개별 프로필 수정 모달 */}
+              <Dialog open={activeEditType !== null} onOpenChange={(open) => { if (!open) setActiveEditType(null) }}>
+                <DialogContent className="max-w-md rounded-none border border-slate-200 bg-white p-6 shadow-xl font-mono text-xs">
+                  <DialogHeader className="gap-1 text-left">
+                    <DialogTitle className="text-base font-bold tracking-wider font-mono text-slate-800">
+                      {activeEditType === "username" && "이름 수정"}
+                      {activeEditType === "displayName" && "디스플레이 네임 수정"}
+                      {activeEditType === "bio" && "한 줄 소개 수정"}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-slate-400 font-mono tracking-wider">
+                      {activeEditType === "username" && "프로필에 표시할 이름을 수정합니다."}
+                      {activeEditType === "displayName" && "프로필 URL 및 식별용 닉네임을 변경합니다."}
+                      {activeEditType === "bio" && "나를 표현하는 한 줄 소개글을 작성합니다."}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <form onSubmit={handleProfileSubmit(onSaveProfile)} className="space-y-4 my-2">
+                    {/* 이름 수정 입력 필드 */}
+                    {activeEditType === "username" && (
+                      <div className="space-y-1.5 text-left">
+                        <Label htmlFor="username" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
+                          이름
+                        </Label>
+                        <Input
+                          id="username"
+                          type="text"
+                          placeholder="이름을 입력해주세요"
+                          {...registerProfile("username")}
+                          disabled={isProfileSubmitting}
+                          className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300 w-full"
+                        />
+                        {profileErrors.username && (
+                          <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                            {profileErrors.username.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 디스플레이 네임 수정 입력 필드 */}
+                    {activeEditType === "displayName" && (
+                      <div className="space-y-1.5 text-left">
+                        <Label htmlFor="displayName" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
+                          디스플레이 네임 (닉네임)
+                        </Label>
+                        <div className="flex gap-2 items-center">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-2.5 text-slate-400 text-xs">@</span>
+                            <Input
+                              id="displayName"
+                              type="text"
+                              placeholder="예: gildong"
+                              {...registerProfile("displayName")}
+                              disabled={isProfileSubmitting}
+                              className="h-10 pl-7 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300 w-full"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            disabled={isProfileSubmitting || isCheckingDuplicate || !isDisplayNameChanged}
+                            onClick={handleCheckDuplicate}
+                            className="h-10 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-4 font-mono text-xs cursor-pointer disabled:opacity-50 shrink-0"
+                          >
+                            {isCheckingDuplicate ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              "중복 확인"
+                            )}
+                          </Button>
+                        </div>
+                        {profileErrors.displayName && (
+                          <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                            {profileErrors.displayName.message}
+                          </p>
+                        )}
+                        {isDisplayNameChanged && !isDuplicateChecked && (
+                          <p className="text-[10px] text-amber-600 font-mono tracking-wider mt-1">
+                            디스플레이 네임이 변경되었습니다. 중복 확인을 진행해 주세요.
+                          </p>
+                        )}
+                        {isDuplicateChecked && isDisplayNameChanged && (
+                          <p className="text-[10px] text-emerald-600 font-mono tracking-wider mt-1">
+                            사용 가능한 디스플레이 네임입니다.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 한 줄 소개 수정 입력 필드 */}
+                    {activeEditType === "bio" && (
+                      <div className="space-y-1.5 text-left">
+                        <Label htmlFor="bio" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
+                          한 줄 소개
+                        </Label>
+                        <textarea
+                          id="bio"
+                          placeholder="한 줄 소개를 입력해주세요."
+                          {...registerProfile("bio")}
+                          disabled={isProfileSubmitting}
+                          className="min-h-[80px] w-full rounded-none border border-slate-200 bg-slate-50/50 px-3 py-2 font-mono text-xs focus-visible:border-slate-400 focus-visible:outline-none placeholder:text-slate-300 resize-none"
+                        />
+                        {profileErrors.bio && (
+                          <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
+                            {profileErrors.bio.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <DialogFooter className="pt-2 flex flex-row gap-2 justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isProfileSubmitting}
+                        onClick={() => {
+                          setActiveEditType(null)
+                        }}
+                        className="rounded-none font-mono text-xs tracking-wider border-slate-200 text-slate-500 hover:bg-slate-50 h-9 px-4 cursor-pointer"
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isProfileSubmitting || (activeEditType === "displayName" && !isDuplicateChecked)}
+                        className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-1.5"
+                      >
+                        {isProfileSubmitting ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>저장 중...</span>
+                          </>
+                        ) : (
+                          "저장"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {/* 프로필 이미지 (사진 편집은 제거) */}
               <div className="relative w-24 h-24 rounded-full overflow-hidden border border-slate-200/80 shadow-xs mb-3 bg-slate-100 shrink-0">
                 {profile?.photoURL || user.photoURL ? (
                   <Image
@@ -627,19 +897,60 @@ export default function Page() {
                   </div>
                 )}
               </div>
-              
-              {/* 이름 (구글 본명) */}
-              <h1 className="text-xl font-bold tracking-wider text-slate-800 font-sans">
-                {profile?.username || user.displayName || "사용자"}
-              </h1>
-              {/* 닉네임 (구글 이메일 앞글자) */}
-              <p className="text-xs text-slate-400 font-mono tracking-wider">
-                @{profile?.displayName || user.email?.split("@")[0] || "user"}
-              </p>
-              {/* 한 줄 소개 */}
-              <p className="text-[11px] text-slate-500 font-mono leading-relaxed tracking-wider max-w-[280px] mt-2 whitespace-pre-line">
-                {profile?.bio || "한 줄 소개를 입력해주세요."}
-              </p>
+
+              {/* 이름 (구글 본명) + 수정 버튼 */}
+              <div className="group relative flex items-center justify-center min-h-[32px] w-full">
+                <div className="relative flex items-center">
+                  <h1 className="text-xl font-bold tracking-wider text-slate-800 font-sans">
+                    {profile?.username || user.displayName || "사용자"}
+                  </h1>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setActiveEditType("username")}
+                    className="absolute left-full ml-1.5 h-6 w-6 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer p-0 shrink-0"
+                    title="이름 수정"
+                  >
+                    <IconPencil className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* 닉네임 (구글 이메일 앞글자) + 수정 버튼 */}
+              <div className="group relative flex items-center justify-center min-h-[24px] w-full">
+                <div className="relative flex items-center">
+                  <p className="text-xs text-slate-400 font-mono tracking-wider">
+                    @{profile?.displayName || user.email?.split("@")[0] || "user"}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setActiveEditType("displayName")}
+                    className="absolute left-full ml-1.5 h-6 w-6 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer p-0 shrink-0"
+                    title="디스플레이 네임 수정"
+                  >
+                    <IconPencil className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* 한 줄 소개 + 수정 버튼 */}
+              <div className="group relative flex items-center justify-center min-h-[28px] mt-2 w-full px-8">
+                <div className="relative flex items-center max-w-[280px]">
+                  <p className="text-[11px] text-slate-500 font-mono leading-relaxed tracking-wider whitespace-pre-line text-center">
+                    {profile?.bio || "한 줄 소개를 입력해주세요."}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setActiveEditType("bio")}
+                    className="absolute left-full top-1/2 -translate-y-1/2 ml-1.5 h-6 w-6 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer p-0 shrink-0"
+                    title="한 줄 소개 수정"
+                  >
+                    <IconPencil className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <div className="w-full flex flex-col gap-4 animate-fade-in">
