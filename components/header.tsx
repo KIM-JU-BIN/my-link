@@ -66,7 +66,7 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
               {/* 내 페이지 버튼 → 수정 가능한 메인 대시보드(/)로 이동 */}
               <a
                 href="/"
-                className="h-8 inline-flex items-center gap-1 px-2.5 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 font-sans text-[10px] sm:text-[11px] font-bold tracking-wider transition-all duration-150 cursor-pointer select-none no-underline decoration-none shrink-0"
+                className="h-8 inline-flex items-center gap-1 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-sans text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm hover:shadow-[0_2px_8px_rgba(8,145,178,0.35)] transition-all duration-150 cursor-pointer select-none no-underline decoration-none shrink-0"
               >
                 <span>내 페이지</span>
               </a>
