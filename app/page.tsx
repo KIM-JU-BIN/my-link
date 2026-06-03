@@ -4,7 +4,7 @@ import * as React from "react"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { db, auth, googleProvider } from "@/lib/firebase"
-import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc, where } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc } from "firebase/firestore"
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth"
 import { Header } from "@/components/header"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -432,13 +432,10 @@ export default function Page() {
     },
   })
 
-  // 프로필 인라인 수정 상태 관리
-  const [editingField, setEditingField] = useState<"username" | "displayName" | "bio" | null>(null)
+  // 프로필 인라인 수정 상태 관리 (displayName은 수정 불가 — 유일성 보장)
+  const [editingField, setEditingField] = useState<"username" | "bio" | null>(null)
   const [tempUsername, setTempUsername] = useState("")
-  const [tempDisplayName, setTempDisplayName] = useState("")
   const [tempBio, setTempBio] = useState("")
-  const [isCheckingDuplicateInline, setIsCheckingDuplicateInline] = useState(false)
-  const [isDisplayNameAvailableInline, setIsDisplayNameAvailableInline] = useState(false)
 
   // Firebase Auth 상태 리스너 등록
   useEffect(() => {
@@ -551,41 +548,7 @@ export default function Page() {
     }
   })
 
-  // 디스플레이 네임 중복 검사 및 저장
-  const handleSaveDisplayNameInline = async (val: string) => {
-    if (!user) return
-    const target = val.trim()
-    if (!target) return
-    
-    if (target === profile?.displayName) {
-      setEditingField(null)
-      return
-    }
-
-    const regex = /^[a-z0-9_]{3,16}$/
-    if (!regex.test(target)) {
-      toast.error("디스플레이 네임은 3~16자의 영문 소문자, 숫자, 밑줄(_)만 사용 가능합니다.")
-      return
-    }
-
-    setIsCheckingDuplicateInline(true)
-    try {
-      const q = query(collection(db, "users"), where("displayName", "==", target))
-      const querySnapshot = await getDocs(q)
-      const isDuplicate = querySnapshot.docs.some((doc) => doc.id !== user?.uid)
-
-      if (isDuplicate) {
-        toast.error("이미 사용 중인 디스플레이 네임입니다.")
-      } else {
-        saveProfileMutation.mutate({ displayName: target })
-      }
-    } catch (err) {
-      console.error("중복 검사 실패: ", err)
-      toast.error("중복 확인 중 오류가 발생했습니다.")
-    } finally {
-      setIsCheckingDuplicateInline(false)
-    }
-  }
+  // displayName은 최초 계정 생성 시 1회만 설정되며 이후 수정 불가 (Security Rules 레벨에서 차단)
 
   // 5. 링크 수정 Mutation
   const updateLinkMutation = useMutation({
@@ -742,81 +705,12 @@ export default function Page() {
                 </div>
               )}
 
-              {/* 닉네임 (displayName) 인라인 편집 */}
-              {editingField === "displayName" ? (
-                <div className="flex items-center justify-center min-h-[24px] w-full gap-2">
-                  <div className="relative flex items-center max-w-[240px]">
-                    <span className="text-slate-400 text-xs font-mono select-none mr-0.5">@</span>
-                    <Input
-                      value={tempDisplayName}
-                      onChange={(e) => {
-                        setTempDisplayName(e.target.value)
-                        setIsDisplayNameAvailableInline(false)
-                      }}
-                      onKeyDown={async (e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          await handleSaveDisplayNameInline(tempDisplayName)
-                        } else if (e.key === "Escape") {
-                          setEditingField(null)
-                        }
-                      }}
-                      autoFocus
-                      disabled={saveProfileMutation.isPending || isCheckingDuplicateInline}
-                      className="h-7 text-xs font-mono border-cyan-500 focus-visible:ring-1 focus-visible:ring-cyan-500 rounded-none bg-white py-0 max-w-[120px]"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={saveProfileMutation.isPending || isCheckingDuplicateInline || tempDisplayName.trim() === (profile?.displayName || "")}
-                      onClick={async () => {
-                        const target = tempDisplayName.trim()
-                        const regex = /^[a-z0-9_]{3,16}$/
-                        if (!regex.test(target)) {
-                          toast.error("디스플레이 네임은 3~16자의 영문 소문자, 숫자, 밑줄(_)만 가능합니다.")
-                          return
-                        }
-                        setIsCheckingDuplicateInline(true)
-                        try {
-                          const q = query(collection(db, "users"), where("displayName", "==", target))
-                          const querySnapshot = await getDocs(q)
-                          const isDuplicate = querySnapshot.docs.some((doc) => doc.id !== user?.uid)
-                          if (isDuplicate) {
-                            toast.error("이미 사용 중인 디스플레이 네임입니다.")
-                            setIsDisplayNameAvailableInline(false)
-                          } else {
-                            toast.success("사용 가능한 디스플레이 네임입니다.")
-                            setIsDisplayNameAvailableInline(true)
-                          }
-                        } catch (err) {
-                          toast.error("중복 확인 중 오류가 발생했습니다.")
-                        } finally {
-                          setIsCheckingDuplicateInline(false)
-                        }
-                      }}
-                      className="h-7 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 ml-1.5 px-2 text-[10px] font-mono cursor-pointer shrink-0"
-                    >
-                      {isCheckingDuplicateInline ? "..." : isDisplayNameAvailableInline ? "검사완료" : "중복확인"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  onClick={() => {
-                    setTempDisplayName(profile?.displayName || "")
-                    setIsDisplayNameAvailableInline(false)
-                    setEditingField("displayName")
-                  }}
-                  className="group relative flex items-center justify-center min-h-[24px] w-full cursor-pointer select-none"
-                >
-                  <div className="relative flex items-center">
-                    <p className="text-xs text-slate-400 font-mono tracking-wider group-hover:text-cyan-600 transition-colors">
-                      @{profile?.displayName || user.email?.split("@")[0] || "user"}
-                    </p>
-                    <IconPencil className="absolute left-full ml-2 w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0" />
-                  </div>
-                </div>
-              )}
+              {/* 닉네임 (displayName) — 읽기 전용 (최초 설정 후 수정 불가) */}
+              <div className="flex items-center justify-center min-h-[24px] w-full">
+                <p className="text-xs text-slate-400 font-mono tracking-wider">
+                  @{profile?.displayName || user.email?.split("@")[0] || "user"}
+                </p>
+              </div>
 
               {/* 한 줄 소개 (bio) 인라인 편집 */}
               {editingField === "bio" ? (

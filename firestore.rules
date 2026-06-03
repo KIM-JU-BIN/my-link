@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────
+    // 헬퍼 함수
+    // ─────────────────────────────────────────────
+
+    // 로그인 여부 확인
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 본인 문서 여부 확인 (userId == 요청자의 UID)
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 허용된 프로필 필드만 업데이트하는지 확인
+    // displayName은 최초 계정 생성 시 1회만 설정되므로 수정 불가 (유일성 보장)
+    function isValidProfileUpdate() {
+      let allowedFields = ['username', 'bio', 'photoURL', 'lastLoginAt'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+
+    // 링크 문서의 필드 유효성 검사
+    function isValidLink() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['title', 'url', 'faviconUrl', 'createdAt'])
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 200
+        && data.url is string
+        && data.url.size() >= 1
+        && data.url.size() <= 2000
+        && data.faviconUrl is string
+        && data.createdAt is string;
+    }
+
+    // 링크 수정 시 허용된 필드만 변경하는지 확인
+    function isValidLinkUpdate() {
+      let allowedFields = ['title', 'url', 'faviconUrl', 'updatedAt'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+
+    // ─────────────────────────────────────────────
+    // users/{userId} — 유저 프로필 문서
+    // ─────────────────────────────────────────────
+    match /users/{userId} {
+
+      // 읽기: 누구나 가능 (공개 프로필 페이지 지원)
+      allow read: if true;
+
+      // 생성: 본인만 가능
+      allow create: if isOwner(userId);
+
+      // 수정: 본인만 + 허용된 필드(username, displayName, bio, photoURL)만 변경 가능
+      allow update: if isOwner(userId) && isValidProfileUpdate();
+
+      // 삭제: 본인만 가능
+      allow delete: if isOwner(userId);
+
+      // ─────────────────────────────────────────────
+      // users/{userId}/links/{linkId} — 링크 서브컬렉션
+      // ─────────────────────────────────────────────
+      match /links/{linkId} {
+
+        // 읽기: 누구나 가능 (공개 링크 목록 지원)
+        allow read: if true;
+
+        // 생성: 본인만 + 유효한 필드 구조일 때만
+        allow create: if isOwner(userId) && isValidLink();
+
+        // 수정: 본인만 + 허용된 필드(title, url, faviconUrl, updatedAt)만 변경 가능
+        allow update: if isOwner(userId) && isValidLinkUpdate();
+
+        // 삭제: 본인만 가능
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // displayName 중복 확인을 위한 users 컬렉션 조회
+    // (where 쿼리: 누구나 읽기 가능 — 위 users/{userId} read 규칙으로 커버됨)
+    // ─────────────────────────────────────────────
+
+  }
+}
