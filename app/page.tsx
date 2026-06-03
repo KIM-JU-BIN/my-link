@@ -63,7 +63,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { IconPlus, IconLoader2 as Loader2, IconPencil, IconTrash, IconBrandGoogle } from "@tabler/icons-react"
+import { IconPlus, IconLoader2 as Loader2, IconPencil, IconTrash, IconBrandGoogle, IconLink, IconArrowRight, IconEye } from "@tabler/icons-react"
 import { z } from "zod"
 import { useForm, FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -630,7 +630,7 @@ export default function Page() {
 
   return (
     <div className="min-h-svh w-full bg-[#FAFBFB] flex flex-col items-center justify-start overflow-x-hidden font-mono">
-      <Header user={user} onSignIn={handleSignIn} onSignOut={handleSignOut} />
+      <Header user={user} profileDisplayName={profile?.displayName} onSignIn={handleSignIn} onSignOut={handleSignOut} />
 
       <div className={`w-full ${user ? "max-w-md" : "max-w-2xl"} flex flex-col items-center gap-10 px-4 py-16 flex-1 justify-center`}>
         {isAuthLoading ? (
@@ -661,40 +661,15 @@ export default function Page() {
               <span>Google로 시작하기</span>
             </Button>
 
-            {/* 플로팅 카드 일러스트 */}
-            <div className="relative w-full max-w-sm mt-12 sm:mt-16 flex justify-center">
-              <div className="w-64 sm:w-72 bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.06)] animate-float relative overflow-hidden select-none">
-                {/* 프로필 정보 영역 */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 rounded-full bg-slate-100 shrink-0"></div>
-                  <div className="flex-1 space-y-1.5">
-                    <div className="w-16 h-3 bg-slate-100 rounded-xs"></div>
-                    <div className="w-24 h-2 bg-slate-50/80 rounded-xs"></div>
-                  </div>
-                </div>
-
-                {/* 링크 아이템 1 (청록색 활성화 형태) */}
-                <div className="w-full h-11 rounded-lg bg-cyan-50/50 border border-cyan-100/50 flex items-center px-3 gap-3 mb-2.5 relative">
-                  <div className="w-6 h-6 rounded-full bg-cyan-600/10 shrink-0 flex items-center justify-center">
-                    <div className="w-2.5 h-2.5 rounded-full bg-cyan-600"></div>
-                  </div>
-                  <div className="w-24 h-2 bg-cyan-600/20 rounded-xs"></div>
-                  
-                  {/* 마우스 포인터 아이콘 */}
-                  <div className="absolute right-6 bottom-[-14px] z-10 text-slate-800 drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] animate-bounce">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 transform rotate-[-15deg]" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M7 2v15.5l3.5-3.5 2.5 5.5 2-1-2.5-5.5 4.5-.5z"/>
-                    </svg>
-                  </div>
-                </div>
-
-                {/* 링크 아이템 2 (일반 회색 형태) */}
-                <div className="w-full h-11 rounded-lg bg-slate-50 border border-slate-100 flex items-center px-3 gap-3">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 shrink-0"></div>
-                  <div className="w-28 h-2 bg-slate-200 rounded-xs"></div>
-                </div>
-              </div>
-            </div>
+            {/* 제작자 샘플 페이지 구경하기 버튼 (대표색과 다르고 강조가 확실히 되는 바이올렛 그라데이션 버튼) */}
+            <a
+              href="/b22615014"
+              className="mt-6 inline-flex items-center gap-2.5 px-6 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-sans text-xs font-bold tracking-wider transition-all duration-300 shadow-[0_4px_14px_rgba(124,58,237,0.35)] cursor-pointer select-none no-underline decoration-none group animate-pulse-violet"
+            >
+              <IconEye className="w-4 h-4 text-violet-100 shrink-0" />
+              <span>제작자 샘플 페이지 구경하기</span>
+              <IconArrowRight className="w-3.5 h-3.5 text-violet-200 transition-transform duration-300 group-hover:translate-x-1 shrink-0" />
+            </a>
           </div>
         ) : (
           <>

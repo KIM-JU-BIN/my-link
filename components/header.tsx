@@ -9,11 +9,12 @@ import { IconLogout, IconCopy, IconCheck, IconEye } from "@tabler/icons-react"
 
 interface HeaderProps {
   user: User | null;
+  profileDisplayName?: string;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
 }
 
-export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
+export function Header({ user, profileDisplayName, onSignIn, onSignOut }: HeaderProps) {
   const [copied, setCopied] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -21,7 +22,8 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
   const handleCopyLink = async () => {
     if (!user) return
 
-    const personalUrl = `${window.location.origin}/users/${user.uid} ` // URL 뒤 공백 룰 준수
+    const path = profileDisplayName ? `/${profileDisplayName}` : `/users/${user.uid}`
+    const personalUrl = `${window.location.origin}${path} ` // URL 뒤 공백 룰 준수
     try {
       await navigator.clipboard.writeText(personalUrl)
       setCopied(true)
@@ -45,16 +47,16 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/90 backdrop-blur-md transition-all duration-300">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-        {/* 로고 영역 */}
-        <div className="flex items-center gap-2 select-none">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 font-mono text-[11px] font-black text-white shadow-[0_2px_8px_rgba(8,145,178,0.25)]">
+        {/* 로고 영역 (시작 화면으로 돌아가기 가능) */}
+        <a href="/" className="flex items-center gap-2 select-none cursor-pointer no-underline decoration-none hover:opacity-90 transition-opacity">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-50 to-cyan-600 font-mono text-[11px] font-black text-white shadow-[0_2px_8px_rgba(8,145,178,0.25)]">
             L
           </div>
           <span className="font-sans text-lg font-black tracking-tight">
             <span className="text-slate-800">My</span>
             <span className="text-cyan-600">Link</span>
           </span>
-        </div>
+        </a>
 
         {/* 버튼 영역 */}
         <div className="flex items-center gap-3 relative" ref={dropdownRef}>
@@ -92,7 +94,7 @@ export function Header({ user, onSignIn, onSignOut }: HeaderProps) {
 
                   {/* 내 페이지 미리보기 */}
                   <a
-                    href={`/users/${user.uid}`}
+                    href={profileDisplayName ? `/${profileDisplayName}` : `/users/${user.uid}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setIsDropdownOpen(false)}

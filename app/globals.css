@@ -140,3 +140,18 @@
 .animate-float {
   animation: float 5s ease-in-out infinite;
 }
+
+@keyframes pulse-violet {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 14px 0 rgba(124, 58, 237, 0.35);
+  }
+  50% {
+    transform: scale(1.025);
+    box-shadow: 0 6px 22px 6px rgba(124, 58, 237, 0.2);
+  }
+}
+
+.animate-pulse-violet {
+  animation: pulse-violet 2s ease-in-out infinite;
+}
