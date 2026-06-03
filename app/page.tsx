@@ -66,6 +66,7 @@ import { IconPlus, IconLoader2 as Loader2, IconPencil, IconTrash, IconBrandGoogl
 import { z } from "zod"
 import { useForm, FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
 
 const linkSchema = z.object({
   title: z
@@ -144,6 +145,7 @@ function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
       setIsEditing(false)
     } catch (err) {
       console.error("수정 오류: ", err)
+      toast.error("링크 수정에 실패했습니다.")
     } finally {
       setIsSubmitting(false)
     }
@@ -156,6 +158,7 @@ function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
       setIsAlertOpen(false)
     } catch (err) {
       console.error("삭제 오류: ", err)
+      toast.error("링크 삭제에 실패했습니다.")
     } finally {
       setIsDeleting(false)
     }
@@ -398,6 +401,7 @@ export default function Page() {
           })
         } catch (err) {
           console.error("유저 프로필 정보 Firestore 동기화 실패: ", err)
+          toast.error("유저 프로필 동기화에 실패했습니다.")
         }
       } else {
         setProfile(null)
@@ -413,6 +417,7 @@ export default function Page() {
       await signInWithPopup(auth, googleProvider)
     } catch (err) {
       console.error("구글 소셜 로그인 에러: ", err)
+      toast.error("구글 로그인에 실패했습니다.")
     }
   }
 
@@ -422,6 +427,7 @@ export default function Page() {
       setLinks([])
     } catch (err) {
       console.error("로그아웃 에러: ", err)
+      toast.error("로그아웃에 실패했습니다.")
     }
   }
 
@@ -441,6 +447,7 @@ export default function Page() {
       setLinks(fetchedLinks)
     } catch (error) {
       console.error("링크 로드 에러: ", error)
+      toast.error("링크 목록을 가져오는 데 실패했습니다.")
     } finally {
       setIsLoading(false)
     }
@@ -486,6 +493,7 @@ export default function Page() {
       reset()
     } catch (err) {
       console.error("링크 저장 실패: ", err)
+      toast.error("링크 추가에 실패했습니다.")
     } finally {
       setIsSubmitting(false)
     }
