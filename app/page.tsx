@@ -7,6 +7,7 @@ import { db, auth, googleProvider } from "@/lib/firebase"
 import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc, where } from "firebase/firestore"
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth"
 import { Header } from "@/components/header"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
 export interface LinkItem {
   id: string;
@@ -360,17 +361,68 @@ function LinkCard({ link, onUpdate, onDelete }: LinkCardProps) {
 
 export default function Page() {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<{
-    username: string;
-    displayName: string;
-    bio: string;
-    photoURL: string;
-  } | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
-  const [links, setLinks] = useState<LinkItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const queryClient = useQueryClient()
+
+  // 1. 프로필 정보 조회 Query
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ["profile", user?.uid],
+    queryFn: async () => {
+      if (!user) return null
+      const userDocRef = doc(db, "users", user.uid)
+      const userSnap = await getDoc(userDocRef)
+      const nickname = user.email ? user.email.split("@")[0] : "user"
+      
+      if (userSnap.exists()) {
+        const existData = userSnap.data()
+        return {
+          username: existData.username || user.displayName || "사용자",
+          displayName: existData.displayName || nickname,
+          bio: existData.bio || "한 줄 소개를 입력해주세요.",
+          photoURL: existData.photoURL || user.photoURL || "",
+        }
+      }
+
+      let profileData = {
+        uid: user.uid,
+        email: user.email || "",
+        displayName: nickname,
+        username: user.displayName || "사용자",
+        photoURL: user.photoURL || "",
+        bio: "한 줄 소개를 입력해주세요.",
+        lastLoginAt: new Date().toISOString(),
+      }
+      await setDoc(userDocRef, profileData, { merge: true })
+      return {
+        username: profileData.username,
+        displayName: profileData.displayName,
+        bio: profileData.bio,
+        photoURL: profileData.photoURL,
+      }
+    },
+    enabled: !!user,
+  })
+
+  // 2. 링크 목록 조회 Query
+  const { data: links = [], isLoading: isLinksLoading } = useQuery({
+    queryKey: ["links", user?.uid],
+    queryFn: async () => {
+      if (!user) return []
+      const q = query(collection(db, "users", user.uid, "links"), orderBy("createdAt", "desc"))
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        title: doc.data().title,
+        url: doc.data().url,
+        faviconUrl: doc.data().faviconUrl,
+        createdAt: doc.data().createdAt,
+        updatedAt: doc.data().updatedAt || undefined,
+      })) as LinkItem[]
+    },
+    enabled: !!user,
+  })
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<LinkFormValues>({
     resolver: zodResolver(linkSchema),
@@ -380,95 +432,25 @@ export default function Page() {
     },
   })
 
-  // 프로필 수정 상태 관리 (개별 필드 수정)
-  const [activeEditType, setActiveEditType] = useState<"username" | "displayName" | "bio" | null>(null)
-  const [checkedDisplayName, setCheckedDisplayName] = useState("")
-  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
-  const [isProfileSubmitting, setIsProfileSubmitting] = useState(false)
+  // 프로필 인라인 수정 상태 관리
+  const [editingField, setEditingField] = useState<"username" | "displayName" | "bio" | null>(null)
+  const [tempUsername, setTempUsername] = useState("")
+  const [tempDisplayName, setTempDisplayName] = useState("")
+  const [tempBio, setTempBio] = useState("")
+  const [isCheckingDuplicateInline, setIsCheckingDuplicateInline] = useState(false)
+  const [isDisplayNameAvailableInline, setIsDisplayNameAvailableInline] = useState(false)
 
-  const {
-    register: registerProfile,
-    handleSubmit: handleProfileSubmit,
-    reset: resetProfile,
-    watch: watchProfile,
-    formState: { errors: profileErrors },
-  } = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      username: "",
-      displayName: "",
-      bio: "",
-    },
-  })
-
-  // 프로필 로드 및 수정 모달 진입 시 폼 데이터 초기화
+  // Firebase Auth 상태 리스너 등록
   useEffect(() => {
-    if (profile && activeEditType) {
-      resetProfile({
-        username: profile.username || "",
-        displayName: profile.displayName || "",
-        bio: profile.bio || "",
-      })
-      if (activeEditType === "displayName") {
-        setCheckedDisplayName(profile.displayName || "")
-      }
-    }
-  }, [profile, resetProfile, activeEditType])
-
-  const currentDisplayName = watchProfile("displayName")
-  const isDisplayNameChanged = currentDisplayName !== (profile?.displayName || "")
-  const isDuplicateChecked = !isDisplayNameChanged || (currentDisplayName === checkedDisplayName)
-
-  // Firebase Auth 상태 리스너 등록 및 프로필 정보 Firestore 동기화
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        try {
-          const userDocRef = doc(db, "users", currentUser.uid)
-          const userSnap = await getDoc(userDocRef)
-          const nickname = currentUser.email ? currentUser.email.split("@")[0] : "user"
-
-          let profileData = {
-            uid: currentUser.uid,
-            email: currentUser.email || "",
-            displayName: nickname,
-            username: currentUser.displayName || "사용자",
-            photoURL: currentUser.photoURL || "",
-            bio: "한 줄 소개를 입력해주세요.",
-            lastLoginAt: new Date().toISOString(),
-          }
-
-          if (userSnap.exists()) {
-            const existData = userSnap.data()
-            profileData = {
-              ...profileData,
-              displayName: existData.displayName || nickname,
-              username: existData.username || currentUser.displayName || "사용자",
-              photoURL: existData.photoURL || currentUser.photoURL || "",
-              bio: existData.bio || "한 줄 소개를 입력해주세요.",
-            }
-          }
-
-          await setDoc(userDocRef, profileData, { merge: true })
-
-          setProfile({
-            username: profileData.username,
-            displayName: profileData.displayName,
-            bio: profileData.bio,
-            photoURL: profileData.photoURL,
-          })
-        } catch (err) {
-          console.error("유저 프로필 정보 Firestore 동기화 실패: ", err)
-          toast.error("유저 프로필 동기화에 실패했습니다.")
-        }
-      } else {
-        setProfile(null)
-      }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
       setIsAuthLoading(false)
+      if (!currentUser) {
+        queryClient.clear()
+      }
     })
     return () => unsubscribe()
-  }, [])
+  }, [queryClient])
 
   const handleSignIn = async () => {
     try {
@@ -482,47 +464,31 @@ export default function Page() {
   const handleSignOut = async () => {
     try {
       await signOut(auth)
-      setLinks([])
     } catch (err) {
       console.error("로그아웃 에러: ", err)
       toast.error("로그아웃에 실패했습니다.")
     }
   }
 
-  const fetchLinks = async (uid: string) => {
-    setIsLoading(true)
-    try {
-      const q = query(collection(db, "users", uid, "links"), orderBy("createdAt", "desc"))
-      const snapshot = await getDocs(q)
-      const fetchedLinks = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        title: doc.data().title,
-        url: doc.data().url,
-        faviconUrl: doc.data().faviconUrl,
-        createdAt: doc.data().createdAt,
-        updatedAt: doc.data().updatedAt || undefined,
-      })) as LinkItem[]
-      setLinks(fetchedLinks)
-    } catch (error) {
-      console.error("링크 로드 에러: ", error)
-      toast.error("링크 목록을 가져오는 데 실패했습니다.")
-    } finally {
-      setIsLoading(false)
+  // 3. 링크 추가 Mutation
+  const addLinkMutation = useMutation({
+    mutationFn: async (newLinkData: { title: string; url: string; faviconUrl: string; createdAt: string }) => {
+      if (!user) throw new Error("로그인이 필요합니다.")
+      return await addDoc(collection(db, "users", user.uid, "links"), newLinkData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links", user?.uid] })
+      setIsOpen(false)
+      reset()
+    },
+    onError: (err) => {
+      console.error("링크 저장 실패: ", err)
+      toast.error("링크 추가에 실패했습니다.")
     }
-  }
-
-  useEffect(() => {
-    if (user) {
-      fetchLinks(user.uid)
-    } else {
-      setLinks([])
-      setIsLoading(false)
-    }
-  }, [user])
+  })
 
   const handleAddLink = async (data: LinkFormValues) => {
     if (!user) return
-    setIsSubmitting(true)
     let domain = ""
     try {
       const urlObj = new URL(data.url)
@@ -540,21 +506,7 @@ export default function Page() {
       createdAt: new Date().toISOString(),
     }
 
-    try {
-      const docRef = await addDoc(collection(db, "users", user.uid, "links"), newLinkData)
-      const newLinkItem: LinkItem = {
-        id: docRef.id,
-        ...newLinkData,
-      }
-      setLinks((prev) => [newLinkItem, ...prev])
-      setIsOpen(false)
-      reset()
-    } catch (err) {
-      console.error("링크 저장 실패: ", err)
-      toast.error("링크 추가에 실패했습니다.")
-    } finally {
-      setIsSubmitting(false)
-    }
+    addLinkMutation.mutate(newLinkData)
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -564,10 +516,51 @@ export default function Page() {
     }
   }
 
-  // 디스플레이 네임 중복 검사
-  const handleCheckDuplicate = async () => {
-    const target = currentDisplayName?.trim()
+  // 4. 프로필 저장 Mutation (낙관적 업데이트 적용)
+  const saveProfileMutation = useMutation({
+    mutationFn: async (updatedData: Partial<UserProfile>) => {
+      if (!user) throw new Error("로그인이 필요합니다.")
+      const userDocRef = doc(db, "users", user.uid)
+      await updateDoc(userDocRef, updatedData)
+      return updatedData
+    },
+    onMutate: async (newProfileFields) => {
+      await queryClient.cancelQueries({ queryKey: ["profile", user?.uid] })
+      const previousProfile = queryClient.getQueryData(["profile", user?.uid])
+      queryClient.setQueryData(["profile", user?.uid], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          ...newProfileFields,
+        }
+      })
+      return { previousProfile }
+    },
+    onError: (err, newProfileFields, context) => {
+      if (context?.previousProfile) {
+        queryClient.setQueryData(["profile", user?.uid], context.previousProfile)
+      }
+      toast.error("프로필 수정에 실패했습니다.")
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.uid] })
+    },
+    onSuccess: () => {
+      toast.success("수정되었습니다.")
+      setEditingField(null)
+    }
+  })
+
+  // 디스플레이 네임 중복 검사 및 저장
+  const handleSaveDisplayNameInline = async (val: string) => {
+    if (!user) return
+    const target = val.trim()
     if (!target) return
+    
+    if (target === profile?.displayName) {
+      setEditingField(null)
+      return
+    }
 
     const regex = /^[a-z0-9_]{3,16}$/
     if (!regex.test(target)) {
@@ -575,7 +568,7 @@ export default function Page() {
       return
     }
 
-    setIsCheckingDuplicate(true)
+    setIsCheckingDuplicateInline(true)
     try {
       const q = query(collection(db, "users"), where("displayName", "==", target))
       const querySnapshot = await getDocs(q)
@@ -584,88 +577,55 @@ export default function Page() {
       if (isDuplicate) {
         toast.error("이미 사용 중인 디스플레이 네임입니다.")
       } else {
-        toast.success("사용 가능한 디스플레이 네임입니다.")
-        setCheckedDisplayName(target)
+        saveProfileMutation.mutate({ displayName: target })
       }
     } catch (err) {
       console.error("중복 검사 실패: ", err)
       toast.error("중복 확인 중 오류가 발생했습니다.")
     } finally {
-      setIsCheckingDuplicate(false)
+      setIsCheckingDuplicateInline(false)
     }
   }
 
-  // 프로필 저장
-  const onSaveProfile = async (data: ProfileFormValues) => {
-    if (!user || !activeEditType) return
-    if (activeEditType === "displayName" && !isDuplicateChecked) {
-      toast.error("디스플레이 네임 중복 확인을 해주세요.")
-      return
-    }
-
-    setIsProfileSubmitting(true)
-    try {
-      const userDocRef = doc(db, "users", user.uid)
-      
-      const updateData: Partial<UserProfile> = {}
-      if (activeEditType === "username") {
-        updateData.username = data.username
-      } else if (activeEditType === "displayName") {
-        updateData.displayName = data.displayName
-      } else if (activeEditType === "bio") {
-        updateData.bio = data.bio
-      }
-
-      await updateDoc(userDocRef, updateData)
-
-      setProfile((prev) => {
-        if (!prev) return null
-        return {
-          ...prev,
-          ...updateData,
-        } as any
-      })
-      
-      toast.success("수정되었습니다.")
-      setActiveEditType(null)
-    } catch (err) {
-      console.error("프로필 수정 오류: ", err)
-      toast.error("프로필 수정에 실패했습니다.")
-    } finally {
-      setIsProfileSubmitting(false)
-    }
-  }
-
-  const handleUpdateLink = async (id: string, title: string, url: string, faviconUrl: string) => {
-    if (!user) return
-    try {
+  // 5. 링크 수정 Mutation
+  const updateLinkMutation = useMutation({
+    mutationFn: async ({ id, title, url, faviconUrl }: { id: string; title: string; url: string; faviconUrl: string }) => {
+      if (!user) throw new Error("로그인이 필요합니다.")
       const linkRef = doc(db, "users", user.uid, "links", id)
       const updatedAt = new Date().toISOString()
-      await updateDoc(linkRef, {
-        title,
-        url,
-        faviconUrl,
-        updatedAt,
-      })
-      setLinks((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, title, url, faviconUrl, updatedAt } : item))
-      )
-    } catch (err) {
+      return await updateDoc(linkRef, { title, url, faviconUrl, updatedAt })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links", user?.uid] })
+    },
+    onError: (err) => {
       console.error("링크 수정 실패: ", err)
       throw err
     }
+  })
+
+  const handleUpdateLink = async (id: string, title: string, url: string, faviconUrl: string) => {
+    await updateLinkMutation.mutateAsync({ id, title, url, faviconUrl })
   }
 
-  const handleDeleteLink = async (id: string) => {
-    if (!user) return
-    try {
+  // 6. 링크 삭제 Mutation
+  const deleteLinkMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error("로그인이 필요합니다.")
       const linkRef = doc(db, "users", user.uid, "links", id)
-      await deleteDoc(linkRef)
-      setLinks((prev) => prev.filter((item) => item.id !== id))
-    } catch (err) {
+      return await deleteDoc(linkRef)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links", user?.uid] })
+    },
+    onError: (err) => {
       console.error("링크 삭제 실패: ", err)
       throw err
     }
+  })
+
+  const handleDeleteLink = async (id: string) => {
+    await deleteLinkMutation.mutateAsync(id)
   }
 
   return (
@@ -740,146 +700,6 @@ export default function Page() {
           <>
             {/* 프로필 섹션 */}
             <div className="relative flex flex-col items-center text-center gap-2 w-full mt-4 animate-fade-in">
-              {/* 개별 프로필 수정 모달 */}
-              <Dialog open={activeEditType !== null} onOpenChange={(open) => { if (!open) setActiveEditType(null) }}>
-                <DialogContent className="max-w-md rounded-none border border-slate-200 bg-white p-6 shadow-xl font-mono text-xs">
-                  <DialogHeader className="gap-1 text-left">
-                    <DialogTitle className="text-base font-bold tracking-wider font-mono text-slate-800">
-                      {activeEditType === "username" && "이름 수정"}
-                      {activeEditType === "displayName" && "디스플레이 네임 수정"}
-                      {activeEditType === "bio" && "한 줄 소개 수정"}
-                    </DialogTitle>
-                    <DialogDescription className="text-xs text-slate-400 font-mono tracking-wider">
-                      {activeEditType === "username" && "프로필에 표시할 이름을 수정합니다."}
-                      {activeEditType === "displayName" && "프로필 URL 및 식별용 닉네임을 변경합니다."}
-                      {activeEditType === "bio" && "나를 표현하는 한 줄 소개글을 작성합니다."}
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <form onSubmit={handleProfileSubmit(onSaveProfile)} className="space-y-4 my-2">
-                    {/* 이름 수정 입력 필드 */}
-                    {activeEditType === "username" && (
-                      <div className="space-y-1.5 text-left">
-                        <Label htmlFor="username" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
-                          이름
-                        </Label>
-                        <Input
-                          id="username"
-                          type="text"
-                          placeholder="이름을 입력해주세요"
-                          {...registerProfile("username")}
-                          disabled={isProfileSubmitting}
-                          className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300 w-full"
-                        />
-                        {profileErrors.username && (
-                          <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
-                            {profileErrors.username.message}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 디스플레이 네임 수정 입력 필드 */}
-                    {activeEditType === "displayName" && (
-                      <div className="space-y-1.5 text-left">
-                        <Label htmlFor="displayName" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
-                          디스플레이 네임 (닉네임)
-                        </Label>
-                        <div className="flex gap-2 items-center">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-2.5 text-slate-400 text-xs">@</span>
-                            <Input
-                              id="displayName"
-                              type="text"
-                              placeholder="예: gildong"
-                              {...registerProfile("displayName")}
-                              disabled={isProfileSubmitting}
-                              className="h-10 pl-7 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300 w-full"
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            disabled={isProfileSubmitting || isCheckingDuplicate || !isDisplayNameChanged}
-                            onClick={handleCheckDuplicate}
-                            className="h-10 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-4 font-mono text-xs cursor-pointer disabled:opacity-50 shrink-0"
-                          >
-                            {isCheckingDuplicate ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              "중복 확인"
-                            )}
-                          </Button>
-                        </div>
-                        {profileErrors.displayName && (
-                          <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
-                            {profileErrors.displayName.message}
-                          </p>
-                        )}
-                        {isDisplayNameChanged && !isDuplicateChecked && (
-                          <p className="text-[10px] text-amber-600 font-mono tracking-wider mt-1">
-                            디스플레이 네임이 변경되었습니다. 중복 확인을 진행해 주세요.
-                          </p>
-                        )}
-                        {isDuplicateChecked && isDisplayNameChanged && (
-                          <p className="text-[10px] text-emerald-600 font-mono tracking-wider mt-1">
-                            사용 가능한 디스플레이 네임입니다.
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 한 줄 소개 수정 입력 필드 */}
-                    {activeEditType === "bio" && (
-                      <div className="space-y-1.5 text-left">
-                        <Label htmlFor="bio" className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">
-                          한 줄 소개
-                        </Label>
-                        <textarea
-                          id="bio"
-                          placeholder="한 줄 소개를 입력해주세요."
-                          {...registerProfile("bio")}
-                          disabled={isProfileSubmitting}
-                          className="min-h-[80px] w-full rounded-none border border-slate-200 bg-slate-50/50 px-3 py-2 font-mono text-xs focus-visible:border-slate-400 focus-visible:outline-none placeholder:text-slate-300 resize-none"
-                        />
-                        {profileErrors.bio && (
-                          <p className="text-[10px] text-red-500 font-mono tracking-wider mt-1">
-                            {profileErrors.bio.message}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <DialogFooter className="pt-2 flex flex-row gap-2 justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={isProfileSubmitting}
-                        onClick={() => {
-                          setActiveEditType(null)
-                        }}
-                        className="rounded-none font-mono text-xs tracking-wider border-slate-200 text-slate-500 hover:bg-slate-50 h-9 px-4 cursor-pointer"
-                      >
-                        취소
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={isProfileSubmitting || (activeEditType === "displayName" && !isDuplicateChecked)}
-                        className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-1.5"
-                      >
-                        {isProfileSubmitting ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>저장 중...</span>
-                          </>
-                        ) : (
-                          "저장"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-
               {/* 프로필 이미지 (사진 편집은 제거) */}
               <div className="relative w-24 h-24 rounded-full overflow-hidden border border-slate-200/80 shadow-xs mb-3 bg-slate-100 shrink-0">
                 {profile?.photoURL || user.photoURL ? (
@@ -898,59 +718,174 @@ export default function Page() {
                 )}
               </div>
 
-              {/* 이름 (구글 본명) + 수정 버튼 */}
-              <div className="group relative flex items-center justify-center min-h-[32px] w-full">
-                <div className="relative flex items-center">
-                  <h1 className="text-xl font-bold tracking-wider text-slate-800 font-sans">
-                    {profile?.username || user.displayName || "사용자"}
-                  </h1>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setActiveEditType("username")}
-                    className="absolute left-full ml-1.5 h-6 w-6 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer p-0 shrink-0"
-                    title="이름 수정"
-                  >
-                    <IconPencil className="w-3.5 h-3.5" />
-                  </Button>
+              {/* 이름 (username) 인라인 편집 */}
+              {editingField === "username" ? (
+                <div className="flex items-center justify-center min-h-[32px] w-full">
+                  <Input
+                    value={tempUsername}
+                    onChange={(e) => setTempUsername(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const target = tempUsername.trim()
+                        if (!target) {
+                          toast.error("이름을 입력해주세요.")
+                          return
+                        }
+                        saveProfileMutation.mutate({ username: target })
+                      } else if (e.key === "Escape") {
+                        setEditingField(null)
+                      }
+                    }}
+                    autoFocus
+                    onBlur={() => {
+                      const target = tempUsername.trim()
+                      if (target && target !== (profile?.username || "")) {
+                        saveProfileMutation.mutate({ username: target })
+                      } else {
+                        setEditingField(null)
+                      }
+                    }}
+                    disabled={saveProfileMutation.isPending}
+                    className="max-w-[200px] h-8 text-center font-sans font-bold text-xl border-cyan-500 focus-visible:ring-1 focus-visible:ring-cyan-500 rounded-none bg-white py-0"
+                  />
                 </div>
-              </div>
+              ) : (
+                <div 
+                  onClick={() => {
+                    setTempUsername(profile?.username || "")
+                    setEditingField("username")
+                  }}
+                  className="group relative flex items-center justify-center min-h-[32px] w-full cursor-pointer select-none"
+                >
+                  <div className="relative flex items-center">
+                    <h1 className="text-xl font-bold tracking-wider text-slate-800 font-sans group-hover:text-cyan-600 transition-colors">
+                      {profile?.username || user.displayName || "사용자"}
+                    </h1>
+                    <IconPencil className="absolute left-full ml-2 w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0" />
+                  </div>
+                </div>
+              )}
 
-              {/* 닉네임 (구글 이메일 앞글자) + 수정 버튼 */}
-              <div className="group relative flex items-center justify-center min-h-[24px] w-full">
-                <div className="relative flex items-center">
-                  <p className="text-xs text-slate-400 font-mono tracking-wider">
-                    @{profile?.displayName || user.email?.split("@")[0] || "user"}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setActiveEditType("displayName")}
-                    className="absolute left-full ml-1.5 h-6 w-6 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer p-0 shrink-0"
-                    title="디스플레이 네임 수정"
-                  >
-                    <IconPencil className="w-3.5 h-3.5" />
-                  </Button>
+              {/* 닉네임 (displayName) 인라인 편집 */}
+              {editingField === "displayName" ? (
+                <div className="flex items-center justify-center min-h-[24px] w-full gap-2">
+                  <div className="relative flex items-center max-w-[240px]">
+                    <span className="text-slate-400 text-xs font-mono select-none mr-0.5">@</span>
+                    <Input
+                      value={tempDisplayName}
+                      onChange={(e) => {
+                        setTempDisplayName(e.target.value)
+                        setIsDisplayNameAvailableInline(false)
+                      }}
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          await handleSaveDisplayNameInline(tempDisplayName)
+                        } else if (e.key === "Escape") {
+                          setEditingField(null)
+                        }
+                      }}
+                      autoFocus
+                      disabled={saveProfileMutation.isPending || isCheckingDuplicateInline}
+                      className="h-7 text-xs font-mono border-cyan-500 focus-visible:ring-1 focus-visible:ring-cyan-500 rounded-none bg-white py-0 max-w-[120px]"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={saveProfileMutation.isPending || isCheckingDuplicateInline || tempDisplayName.trim() === (profile?.displayName || "")}
+                      onClick={async () => {
+                        const target = tempDisplayName.trim()
+                        const regex = /^[a-z0-9_]{3,16}$/
+                        if (!regex.test(target)) {
+                          toast.error("디스플레이 네임은 3~16자의 영문 소문자, 숫자, 밑줄(_)만 가능합니다.")
+                          return
+                        }
+                        setIsCheckingDuplicateInline(true)
+                        try {
+                          const q = query(collection(db, "users"), where("displayName", "==", target))
+                          const querySnapshot = await getDocs(q)
+                          const isDuplicate = querySnapshot.docs.some((doc) => doc.id !== user?.uid)
+                          if (isDuplicate) {
+                            toast.error("이미 사용 중인 디스플레이 네임입니다.")
+                            setIsDisplayNameAvailableInline(false)
+                          } else {
+                            toast.success("사용 가능한 디스플레이 네임입니다.")
+                            setIsDisplayNameAvailableInline(true)
+                          }
+                        } catch (err) {
+                          toast.error("중복 확인 중 오류가 발생했습니다.")
+                        } finally {
+                          setIsCheckingDuplicateInline(false)
+                        }
+                      }}
+                      className="h-7 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 ml-1.5 px-2 text-[10px] font-mono cursor-pointer shrink-0"
+                    >
+                      {isCheckingDuplicateInline ? "..." : isDisplayNameAvailableInline ? "검사완료" : "중복확인"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div 
+                  onClick={() => {
+                    setTempDisplayName(profile?.displayName || "")
+                    setIsDisplayNameAvailableInline(false)
+                    setEditingField("displayName")
+                  }}
+                  className="group relative flex items-center justify-center min-h-[24px] w-full cursor-pointer select-none"
+                >
+                  <div className="relative flex items-center">
+                    <p className="text-xs text-slate-400 font-mono tracking-wider group-hover:text-cyan-600 transition-colors">
+                      @{profile?.displayName || user.email?.split("@")[0] || "user"}
+                    </p>
+                    <IconPencil className="absolute left-full ml-2 w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0" />
+                  </div>
+                </div>
+              )}
 
-              {/* 한 줄 소개 + 수정 버튼 */}
-              <div className="group relative flex items-center justify-center min-h-[28px] mt-2 w-full px-8">
-                <div className="relative flex items-center max-w-[280px]">
-                  <p className="text-[11px] text-slate-500 font-mono leading-relaxed tracking-wider whitespace-pre-line text-center">
-                    {profile?.bio || "한 줄 소개를 입력해주세요."}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setActiveEditType("bio")}
-                    className="absolute left-full top-1/2 -translate-y-1/2 ml-1.5 h-6 w-6 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer p-0 shrink-0"
-                    title="한 줄 소개 수정"
-                  >
-                    <IconPencil className="w-3.5 h-3.5" />
-                  </Button>
+              {/* 한 줄 소개 (bio) 인라인 편집 */}
+              {editingField === "bio" ? (
+                <div className="flex items-center justify-center min-h-[36px] w-full max-w-[320px]">
+                  <Input
+                    value={tempBio}
+                    onChange={(e) => setTempBio(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        saveProfileMutation.mutate({ bio: tempBio.trim() })
+                      } else if (e.key === "Escape") {
+                        setEditingField(null)
+                      }
+                    }}
+                    autoFocus
+                    onBlur={() => {
+                      if (tempBio.trim() !== (profile?.bio || "")) {
+                        saveProfileMutation.mutate({ bio: tempBio.trim() })
+                      } else {
+                        setEditingField(null)
+                      }
+                    }}
+                    disabled={saveProfileMutation.isPending}
+                    className="w-full h-9 text-center font-mono text-xs border-cyan-500 focus-visible:ring-1 focus-visible:ring-cyan-500 rounded-none bg-white px-3"
+                    placeholder="한 줄 소개를 입력해주세요."
+                  />
                 </div>
-              </div>
+              ) : (
+                <div 
+                  onClick={() => {
+                    setTempBio(profile?.bio || "")
+                    setEditingField("bio")
+                  }}
+                  className="group relative flex items-center justify-center min-h-[28px] mt-2 w-full px-8 cursor-pointer select-none"
+                >
+                  <div className="relative flex items-center max-w-[280px]">
+                    <p className="text-[11px] text-slate-500 font-mono leading-relaxed tracking-wider whitespace-pre-line text-center group-hover:text-cyan-600 transition-colors">
+                      {profile?.bio || "한 줄 소개를 입력해주세요."}
+                    </p>
+                    <IconPencil className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0" />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="w-full flex flex-col gap-4 animate-fade-in">
@@ -958,14 +893,14 @@ export default function Page() {
               <Dialog open={isOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger render={
                   <Button 
-                    disabled={isSubmitting}
+                    disabled={addLinkMutation.isPending}
                     className="w-full h-12 bg-cyan-600 hover:bg-cyan-500 text-white dark:bg-cyan-400 dark:hover:bg-cyan-300 dark:text-slate-900 rounded-none font-mono text-xs tracking-widest flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer border-0 shadow-xs">
-                    {isSubmitting ? (
+                    {addLinkMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <IconPlus className="w-4 h-4" />
                     )}
-                    {isSubmitting ? "추가 중..." : "새 링크 추가"}
+                    {addLinkMutation.isPending ? "추가 중..." : "새 링크 추가"}
                   </Button>
                 } />
                 <DialogContent className="max-w-md rounded-none border border-slate-200 bg-white p-6 shadow-xl">
@@ -988,7 +923,7 @@ export default function Page() {
                         type="text"
                         placeholder="예: 내 기술 블로그"
                         {...register("title")}
-                        disabled={isSubmitting}
+                        disabled={addLinkMutation.isPending}
                         className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                       />
                       {errors.title && (
@@ -1007,7 +942,7 @@ export default function Page() {
                         type="text"
                         placeholder="예: blog.example.com"
                         {...register("url")}
-                        disabled={isSubmitting}
+                        disabled={addLinkMutation.isPending}
                         className="h-10 rounded-none border border-slate-200 bg-slate-50/50 px-3 font-mono text-xs focus-visible:border-slate-400 focus-visible:ring-0 placeholder:text-slate-300"
                       />
                       {errors.url && (
@@ -1021,7 +956,7 @@ export default function Page() {
                       <Button
                         type="button"
                         variant="outline"
-                        disabled={isSubmitting}
+                        disabled={addLinkMutation.isPending}
                         onClick={() => {
                           reset()
                           setIsOpen(false)
@@ -1032,10 +967,10 @@ export default function Page() {
                       </Button>
                       <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={addLinkMutation.isPending}
                         className="rounded-none bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider h-9 px-4 cursor-pointer border-0 shadow-xs flex items-center justify-center gap-1.5"
                       >
-                        {isSubmitting ? (
+                        {addLinkMutation.isPending ? (
                           <>
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             <span>저장 중...</span>
@@ -1050,7 +985,7 @@ export default function Page() {
               </Dialog>
 
               {/* 기존 및 추가된 링크 목록 */}
-              {isLoading ? (
+              {isLinksLoading ? (
                 <div className="w-full flex justify-center items-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
                 </div>
