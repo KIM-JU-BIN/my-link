@@ -125,10 +125,10 @@ export default function PublicProfilePage({ params }: PageProps) {
   // 로딩 상태 처리
   if (isProfileLoading || isAuthLoading) {
     return (
-      <div className="min-h-svh w-full bg-[#FAFBFB] flex flex-col items-center justify-center font-mono">
+      <div className="min-h-svh w-full bg-slate-950 flex flex-col items-center justify-center font-mono text-slate-100">
         <div className="flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <span className="text-[10px] text-slate-400 tracking-widest uppercase">페이지 불러오는 중...</span>
+          <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+          <span className="text-[10px] text-slate-500 tracking-widest uppercase">페이지 불러오는 중...</span>
         </div>
       </div>
     )
@@ -146,20 +146,25 @@ export default function PublicProfilePage({ params }: PageProps) {
     (currentUser?.email ? currentUser.email.split("@")[0] : undefined)
 
   return (
-    <div className="min-h-svh w-full bg-[#FAFBFB] flex flex-col items-center justify-start overflow-x-hidden font-mono">
-      {/* 헤더 추가 (방문자가 로그인 하거나 작성자 본인이 자신의 페이지를 볼 때 헤더 활용) */}
+    <div className="min-h-svh w-full bg-slate-950 text-slate-100 flex flex-col items-center justify-start overflow-x-hidden font-mono relative">
+      {/* 네온 배경 광원 효과 */}
+      <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] rounded-full bg-cyan-950/10 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[30%] right-[-5%] w-[45%] h-[45%] rounded-full bg-purple-950/5 blur-[130px] pointer-events-none" />
+
+      {/* 헤더 추가 (방문자가 로그인 하거나 작성자 본인이 자신의 페이지를 볼 때 헤더 활용, 다크 스타일 적용) */}
       <Header 
         user={currentUser} 
         profileDisplayName={resolvedDisplayName} 
         onSignIn={handleSignIn} 
         onSignOut={handleSignOut} 
+        isDark={true}
       />
 
-      <div className="w-full max-w-md flex flex-col items-center gap-10 px-4 py-16 flex-1 justify-start">
+      <div className="w-full max-w-md flex flex-col items-center gap-10 px-4 py-16 flex-1 justify-start relative z-10">
         {/* 프로필 정보 영역 */}
         <div className="relative flex flex-col items-center text-center gap-2 w-full mt-4 animate-fade-in select-none">
           {/* 프로필 이미지 */}
-          <div className="relative w-24 h-24 rounded-full overflow-hidden border border-slate-200/80 shadow-xs mb-3 bg-slate-100 shrink-0">
+          <div className="relative w-24 h-24 rounded-full overflow-hidden border border-slate-800 shadow-xs mb-3 bg-slate-900 shrink-0">
             {profile.photoURL ? (
               <Image
                 src={profile.photoURL}
@@ -170,7 +175,7 @@ export default function PublicProfilePage({ params }: PageProps) {
                 priority
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-cyan-50 text-cyan-600 font-mono text-xl font-bold">
+              <div className="w-full h-full flex items-center justify-center bg-cyan-950 text-cyan-400 font-mono text-xl font-bold">
                 {profile.username.charAt(0)}
               </div>
             )}
@@ -178,21 +183,21 @@ export default function PublicProfilePage({ params }: PageProps) {
 
           {/* 이름 (username) */}
           <div className="relative flex items-center justify-center min-h-[32px] w-full">
-            <h1 className="text-xl font-bold tracking-wider text-slate-800 font-sans">
+            <h1 className="text-xl font-bold tracking-wider text-white font-sans">
               {profile.username}
             </h1>
           </div>
 
           {/* 디스플레이 닉네임 (displayName) */}
           <div className="relative flex items-center justify-center min-h-[24px] w-full">
-            <p className="text-xs text-slate-400 font-mono tracking-wider">
+            <p className="text-xs text-slate-500 font-mono tracking-wider">
               @{profile.displayName}
             </p>
           </div>
 
           {/* 한 줄 소개 (bio) */}
           <div className="relative flex items-center justify-center min-h-[28px] mt-2 w-full px-8">
-            <p className="text-[11px] text-slate-500 font-mono leading-relaxed tracking-wider whitespace-pre-line text-center">
+            <p className="text-[11px] text-slate-400 font-mono leading-relaxed tracking-wider whitespace-pre-line text-center">
               {profile.bio}
             </p>
           </div>
@@ -202,15 +207,15 @@ export default function PublicProfilePage({ params }: PageProps) {
         <div className="w-full flex flex-col gap-4 animate-fade-in">
           {isLinksLoading ? (
             <div className="w-full flex justify-center items-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
+              <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
             </div>
           ) : links.length === 0 ? (
-            <div className="w-full text-center py-12 border border-dashed border-slate-200/80 bg-white/30 text-slate-400 font-mono text-xs tracking-wider">
+            <div className="w-full text-center py-12 border border-dashed border-slate-800 bg-slate-900/20 text-slate-500 font-mono text-xs tracking-wider">
               등록된 링크가 없습니다.
             </div>
           ) : (
             links.map((link) => (
-              <Card key={link.id} className="relative hover:border-slate-300 bg-white transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] border-slate-200/80 rounded-none overflow-hidden w-full">
+              <Card key={link.id} className="relative hover:border-cyan-500/40 bg-slate-900/40 backdrop-blur-md border border-slate-800/80 rounded-none overflow-hidden w-full transition-all duration-200 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)]">
                 <div className="flex items-center justify-between min-h-[72px] px-6 py-4">
                   <a
                     href={link.url}
@@ -218,7 +223,7 @@ export default function PublicProfilePage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className="flex items-center gap-4 flex-1 cursor-pointer select-none py-1 min-w-0"
                   >
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-2xs">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-950 flex items-center justify-center shrink-0 border border-slate-800 shadow-2xs">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={link.faviconUrl} 
@@ -230,7 +235,7 @@ export default function PublicProfilePage({ params }: PageProps) {
                       />
                     </div>
                     
-                    <span className="text-sm font-semibold tracking-wider font-mono text-slate-700 hover:text-cyan-600 transition-colors duration-150 text-left break-all line-clamp-2 pr-2">
+                    <span className="text-sm font-semibold tracking-wider font-mono text-slate-300 hover:text-cyan-400 transition-colors duration-150 text-left break-all line-clamp-2 pr-2">
                       {link.title}
                     </span>
                   </a>
@@ -245,16 +250,16 @@ export default function PublicProfilePage({ params }: PageProps) {
           <div className="w-full flex justify-center mt-2 animate-fade-in">
             <a
               href="/"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 font-sans text-xs font-semibold tracking-wide transition-all duration-150 shadow-2xs hover:shadow-xs cursor-pointer select-none no-underline decoration-none"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-850 text-slate-300 hover:text-white font-sans text-xs font-semibold tracking-wide transition-all duration-150 shadow-2xs hover:shadow-xs cursor-pointer select-none no-underline decoration-none"
             >
-              <IconArrowLeft className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <IconArrowLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>시작 화면으로 돌아가기</span>
             </a>
           </div>
         )}
 
         {/* 하단 카피라이트 */}
-        <footer className="w-full text-center pt-16 pb-4 text-[10px] text-slate-400 font-sans tracking-widest select-none">
+        <footer className="w-full text-center pt-16 pb-4 text-[10px] text-slate-600 font-sans tracking-widest select-none">
           © 2026 MyLink. All rights reserved.
         </footer>
       </div>

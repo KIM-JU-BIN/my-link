@@ -10,14 +10,22 @@ import { IconLogout, IconCopy, IconCheck, IconEye } from "@tabler/icons-react"
 interface HeaderProps {
   user: User | null;
   profileDisplayName?: string;
+  profilePhotoURL?: string;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
+  isDark?: boolean;
 }
 
-export function Header({ user, profileDisplayName, onSignIn, onSignOut }: HeaderProps) {
+export function Header({ user, profileDisplayName, profilePhotoURL, onSignIn, onSignOut, isDark }: HeaderProps) {
   const [copied, setCopied] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isImageError, setIsImageError] = useState(false) // 프로필 이미지 오류 상태 추가
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // user가 바뀌면 이미지 로드 오류 상태 리셋
+  useEffect(() => {
+    setIsImageError(false)
+  }, [user])
 
   const handleCopyLink = async () => {
     if (!user) return
@@ -46,7 +54,11 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
   }, [])
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/90 backdrop-blur-md transition-all duration-300">
+    <header className={`sticky top-0 z-50 w-full border-b backdrop-blur-md transition-all duration-300 ${
+      isDark 
+        ? "border-slate-900 bg-slate-950/80 text-white" 
+        : "border-slate-100 bg-white/90 text-slate-800"
+    }`}>
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
         {/* 로고 영역 (시작 화면으로 돌아가기 가능) */}
         <a href="/" className="flex items-center gap-2 select-none cursor-pointer no-underline decoration-none hover:opacity-90 transition-opacity">
@@ -54,7 +66,7 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
             L
           </div>
           <span className="font-sans text-lg font-black tracking-tight">
-            <span className="text-slate-800">My</span>
+            <span className={isDark ? "text-white" : "text-slate-800"}>My</span>
             <span className="text-cyan-600">Link</span>
           </span>
         </a>
@@ -76,12 +88,13 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="relative h-9 w-9 overflow-hidden rounded-full border border-slate-200/80 shadow-2xs shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/20 active:scale-95 transition-all duration-150"
               >
-                {user.photoURL ? (
+                {(profilePhotoURL || user.photoURL) && !isImageError ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={user.photoURL}
+                    src={profilePhotoURL || user.photoURL || ""}
                     alt={user.displayName || "User"}
                     className="h-full w-full object-cover"
+                    onError={() => setIsImageError(true)}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-cyan-50 text-cyan-600 font-bold text-xs">
@@ -92,14 +105,18 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
 
               {/* 드롭다운 팝오버 */}
               {isDropdownOpen && (
-                <div className="absolute right-0 top-11 z-50 w-56 bg-white border border-slate-100 p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] rounded-xl font-sans text-xs flex flex-col gap-0.5 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+                <div className={`absolute right-0 top-11 z-50 w-56 p-1.5 border rounded-xl font-sans text-xs flex flex-col gap-0.5 animate-in fade-in-0 slide-in-from-top-1 duration-150 ${
+                  isDark 
+                    ? "bg-slate-900 border-slate-800 text-slate-200 shadow-[0_8px_30px_rgba(0,0,0,0.3)]" 
+                    : "bg-white border-slate-100 text-slate-800 shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+                }`}>
                   {/* 사용자 이름 및 이메일 노출 영역 */}
                   <div className="px-3 py-2 flex flex-col select-none">
-                    <span className="font-semibold text-slate-800 text-[13px]">{user.displayName || "사용자"}</span>
-                    <span className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">{user.email || ""}</span>
+                    <span className={`font-semibold text-[13px] ${isDark ? "text-white" : "text-slate-800"}`}>{user.displayName || "사용자"}</span>
+                    <span className={`text-[10px] font-mono mt-0.5 truncate ${isDark ? "text-slate-500" : "text-slate-400"}`}>{user.email || ""}</span>
                   </div>
 
-                  <div className="h-px bg-slate-100 my-1.5"></div>
+                  <div className={`h-px my-1.5 ${isDark ? "bg-slate-800" : "bg-slate-100"}`}></div>
 
                   {/* 내 페이지 미리보기 (displayName이 없으면 홈으로 fallback) */}
                   <a
@@ -107,16 +124,20 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setIsDropdownOpen(false)}
-                    className="w-full h-9 rounded-lg px-3 text-left font-medium text-slate-600 hover:bg-slate-50 cursor-pointer flex items-center gap-2 transition-colors duration-150 no-underline decoration-none"
+                    className={`w-full h-9 rounded-lg px-3 text-left font-medium cursor-pointer flex items-center gap-2 transition-colors duration-150 no-underline decoration-none ${
+                      isDark ? "text-slate-300 hover:bg-slate-800/60" : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
-                    <IconEye className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <IconEye className={`h-3.5 w-3.5 shrink-0 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
                     <span>내 페이지 미리보기</span>
                   </a>
 
                   {/* 링크 복사 */}
                   <button
                     onClick={handleCopyLink}
-                    className="w-full h-9 rounded-lg px-3 text-left font-medium text-slate-600 hover:bg-slate-50 cursor-pointer flex items-center gap-2 transition-colors duration-150"
+                    className={`w-full h-9 rounded-lg px-3 text-left font-medium cursor-pointer flex items-center gap-2 transition-colors duration-150 ${
+                      isDark ? "text-slate-300 hover:bg-slate-800/60" : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
                     {copied ? (
                       <>
@@ -125,13 +146,13 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
                       </>
                     ) : (
                       <>
-                        <IconCopy className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <IconCopy className={`h-3.5 w-3.5 shrink-0 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
                         <span>링크 복사</span>
                       </>
                     )}
                   </button>
 
-                  <div className="h-px bg-slate-100 my-1.5"></div>
+                  <div className={`h-px my-1.5 ${isDark ? "bg-slate-800" : "bg-slate-100"}`}></div>
 
                   {/* 로그아웃 버튼 (붉은색 테마) */}
                   <button
@@ -139,7 +160,9 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
                       setIsDropdownOpen(false)
                       onSignOut()
                     }}
-                    className="w-full h-9 rounded-lg px-3 text-left font-medium text-red-500 hover:bg-red-50/50 cursor-pointer flex items-center gap-2 transition-colors duration-150"
+                    className={`w-full h-9 rounded-lg px-3 text-left font-medium text-red-500 cursor-pointer flex items-center gap-2 transition-colors duration-150 ${
+                      isDark ? "hover:bg-red-950/20" : "hover:bg-red-50/50"
+                    }`}
                   >
                     <IconLogout className="h-3.5 w-3.5 text-red-400 shrink-0" />
                     <span>로그아웃</span>
@@ -148,10 +171,10 @@ export function Header({ user, profileDisplayName, onSignIn, onSignOut }: Header
               )}
             </>
           ) : (
-            /* 로그인 버튼 (대표색 청록색 적용) */
+            /* 로그인 버튼 (대표색 청록색 항상 적용) */
             <Button
               onClick={onSignIn}
-              className="h-9 rounded-none bg-cyan-600 hover:bg-cyan-500 text-white font-sans text-xs font-semibold px-4 tracking-wider cursor-pointer border-0 shadow-sm transition-all duration-200"
+              className="h-9 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-sans text-xs font-semibold px-4 tracking-wider cursor-pointer border border-transparent shadow-sm transition-all duration-200"
             >
               <span>로그인</span>
             </Button>
